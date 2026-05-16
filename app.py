@@ -44,101 +44,43 @@ def signup():
     phone = data.get('phone_number')
     password = data.get('password')
     full_name = data.get('full_name', '')
-    
-    print(f"Signup attempt: {phone} - {full_name}")
-    
-    return jsonify({
-        'success': True,
-        'user_id': 1,
-        'message': 'Account created! Awaiting admin approval.'
-    })
+    print(f"Signup: {phone} - {full_name}")
+    return jsonify({'success': True, 'user_id': 1, 'message': 'Account created! Awaiting admin approval.'})
 
 @app.route('/api/login/', methods=['POST'])
 def login():
     data = request.get_json()
     phone = data.get('phone_number')
     password = data.get('password')
-    
-    print(f"Login attempt: {phone}")
-    
-    return jsonify({
-        'success': True,
-        'user_id': 1,
-        'balance': 10000,
-        'message': 'Login successful'
-    })
+    print(f"Login: {phone}")
+    return jsonify({'success': True, 'user_id': 1, 'balance': 10000, 'message': 'Login successful'})
 
 @app.route('/api/wallet/', methods=['GET'])
 def wallet():
     user_id = request.args.get('user_id')
-    print(f"Wallet request for user: {user_id}")
-    
-    return jsonify({
-        'balance': 10000,
-        'total_deposited': 5000,
-        'total_withdrawn': 0,
-        'total_earned': 500
-    })
+    return jsonify({'balance': 10000, 'total_deposited': 5000, 'total_withdrawn': 0, 'total_earned': 500})
 
 @app.route('/api/my-investments/', methods=['GET'])
 def my_investments():
-    user_id = request.args.get('user_id')
-    print(f"Investments request for user: {user_id}")
-    
-    return jsonify({
-        'investments': [],
-        'total_daily_earnings': 0,
-        'count': 0
-    })
+    return jsonify({'investments': [], 'total_daily_earnings': 0, 'count': 0})
 
 @app.route('/api/mpesa-deposit/', methods=['POST'])
 def mpesa_deposit():
     data = request.get_json()
-    user_id = data.get('user_id')
     amount = data.get('amount')
-    phone_number = data.get('phone_number')
-    
-    print(f"Deposit request: User {user_id}, Amount KES {amount}, Phone {phone_number}")
-    
-    return jsonify({
-        'success': True,
-        'message': f'Deposit of KES {amount:,.0f} successful!',
-        'new_balance': 15000,
-        'transaction_id': 'TEST12345'
-    })
+    return jsonify({'success': True, 'message': f'Deposit of KES {amount} successful!', 'new_balance': 15000})
 
 @app.route('/api/withdraw/', methods=['POST'])
 def withdraw():
     data = request.get_json()
-    user_id = data.get('user_id')
     amount = data.get('amount')
-    phone_number = data.get('phone_number')
-    
-    print(f"Withdrawal request: User {user_id}, Amount KES {amount}, Phone {phone_number}")
-    
-    return jsonify({
-        'success': True,
-        'withdrawal_id': 1,
-        'amount': amount,
-        'message': 'Withdrawal request submitted for processing'
-    })
+    return jsonify({'success': True, 'withdrawal_id': 1, 'amount': amount, 'message': 'Withdrawal request submitted'})
 
 @app.route('/api/invest/', methods=['POST'])
 def invest():
     data = request.get_json()
-    user_id = data.get('user_id')
-    product_id = data.get('product_id')
     amount = data.get('amount')
-    
-    print(f"Investment request: User {user_id}, Product {product_id}, Amount KES {amount}")
-    
-    return jsonify({
-        'success': True,
-        'investment_id': 1,
-        'new_balance': 5000,
-        'daily_earnings': amount * 0.10,
-        'message': f'Successfully invested KES {amount:,.0f}'
-    })
+    return jsonify({'success': True, 'investment_id': 1, 'new_balance': 5000, 'daily_earnings': amount * 0.1, 'message': 'Investment successful'})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8000)
