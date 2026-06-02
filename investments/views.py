@@ -4,13 +4,14 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from decimal import Decimal
 from datetime import datetime, timedelta
-from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog
+from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog
 import random
 import hashlib
 import base64
 import requests
 import uuid
 import json
+import re
 
 # ========== TEST ENDPOINT ==========
 @api_view(['GET'])
@@ -48,15 +49,21 @@ def signup(request):
         if User.objects.filter(username=phone).exists():
             return Response({'error': 'User already exists'}, status=400)
         
-        # Create user
-        user = User.objects.create_user(username=phone, password=password)
+        # Create user - NEVER as staff or superuser
+        user = User.objects.create_user(
+            username=phone, 
+            password=password,
+            is_staff=False,
+            is_superuser=False
+        )
         
         # Create profile (NOT approved yet)
         profile = UserProfile.objects.create(
             user=user,
             phone_number=phone,
             full_name=full_name,
-            is_approved=False
+            is_approved=False,
+            account_status='pending_kyc'
         )
         
         # Create wallet
@@ -84,9 +91,10 @@ def signup(request):
         print(f"❌ Signup error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
+# ========== FIXED LOGIN VIEW ==========
 @api_view(['POST'])
 def login_view(request):
-    """User login - checks if approved"""
+    """User login - checks if user exists, approved, and account status"""
     try:
         phone = request.data.get('phone_number')
         password = request.data.get('password')
@@ -97,23 +105,55 @@ def login_view(request):
         if not phone or not password:
             return Response({'error': 'Phone and password required'}, status=400)
         
+        # FIRST: Check if user exists in database
+        try:
+            user = User.objects.get(username=phone)
+        except User.DoesNotExist:
+            print(f"❌ User not found: {phone}")
+            return Response({
+                'error': 'Account not found. Please sign up first.',
+                'code': 'USER_NOT_FOUND'
+            }, status=404)
+        
+        # SECOND: Authenticate with password
         user = authenticate(username=phone, password=password)
         
         if not user:
             print(f"❌ Authentication failed for {phone}")
-            return Response({'error': 'Invalid phone number or password'}, status=401)
+            return Response({
+                'error': 'Invalid password. Please try again.',
+                'code': 'INVALID_PASSWORD'
+            }, status=401)
         
-        # Check if user is approved
+        # THIRD: Check if user is approved
         try:
             profile = UserProfile.objects.get(user=user)
+            
+            # Check account status
+            if profile.account_status in ['banned', 'frozen']:
+                print(f"🚫 User {phone} - Account {profile.account_status}")
+                return Response({
+                    'error': f'Your account is {profile.account_status}. Please contact admin for assistance.',
+                    'account_status': profile.account_status,
+                    'is_banned': profile.account_status == 'banned',
+                    'is_frozen': profile.account_status == 'frozen',
+                    'code': 'ACCOUNT_BLOCKED'
+                }, status=403)
+            
             if not profile.is_approved:
                 print(f"⏳ User {phone} - PENDING APPROVAL")
                 return Response({
                     'error': 'Account pending admin approval. Please wait.',
-                    'pending_approval': True
+                    'pending_approval': True,
+                    'code': 'PENDING_APPROVAL'
                 }, status=403)
+                
         except UserProfile.DoesNotExist:
-            return Response({'error': 'Profile not found'}, status=404)
+            print(f"❌ Profile not found for {phone}")
+            return Response({
+                'error': 'Account setup incomplete. Please contact support.',
+                'code': 'PROFILE_MISSING'
+            }, status=404)
         
         # Get wallet
         try:
@@ -129,11 +169,14 @@ def login_view(request):
             'success': True,
             'user_id': user.id,
             'balance': balance,
+            'account_status': profile.account_status,
             'message': f'Welcome back {profile.full_name or phone}!'
         })
+        
     except Exception as e:
         print(f"❌ Login error: {str(e)}")
         return Response({'error': str(e)}, status=500)
+
 
 # ========== DEPOSIT FUNCTIONS ==========
 @api_view(['POST'])
@@ -173,6 +216,9 @@ def request_mpesa_deposit(request):
             
             if not profile.is_approved:
                 return Response({'error': 'Account not approved yet. Please wait for admin approval.'}, status=403)
+            
+            if profile.account_status in ['banned', 'frozen']:
+                return Response({'error': f'Your account is {profile.account_status}. Cannot process deposit.'}, status=403)
                 
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
@@ -196,7 +242,8 @@ def request_mpesa_deposit(request):
             amount=amount,
             transaction_id=transaction_id,
             phone_number=phone_number,
-            status='pending'
+            status='pending',
+            verification_status='pending'
         )
         
         # Enhanced admin notification
@@ -232,11 +279,177 @@ def verify_mpesa_payment(request):
         deposit = Deposit.objects.get(transaction_id=transaction_id)
         return Response({
             'status': deposit.status,
+            'verification_status': deposit.verification_status,
             'amount': float(deposit.amount),
             'message': 'Payment verified' if deposit.status == 'approved' else 'Payment pending approval'
         })
     except Deposit.DoesNotExist:
         return Response({'error': 'Transaction not found'}, status=404)
+
+
+# ========== MANUAL PAYMENT VERIFICATION ==========
+@api_view(['POST'])
+def verify_manual_payment(request):
+    """Verify manual M-Pesa payment by parsing the SMS message"""
+    try:
+        user_id = request.data.get('user_id')
+        amount = request.data.get('amount')
+        phone_number = request.data.get('phone_number', '')
+        mpesa_message = request.data.get('mpesa_message', '')
+        
+        print("\n" + "="*60)
+        print(f"📱 MANUAL PAYMENT VERIFICATION")
+        print("="*60)
+        print(f"👤 User ID: {user_id}")
+        print(f"💵 Amount: KES {amount}")
+        print(f"📱 Phone: {phone_number}")
+        print(f"📝 Message: {mpesa_message[:100]}...")
+        print("="*60)
+        
+        if not mpesa_message:
+            return Response({'error': 'Please paste your M-Pesa message'}, status=400)
+        
+        # Check if user is banned or frozen
+        try:
+            profile = UserProfile.objects.get(user_id=user_id)
+            if profile.account_status in ['banned', 'frozen']:
+                return Response({
+                    'error': f'Your account is {profile.account_status}. Please contact admin for assistance.'
+                }, status=403)
+        except UserProfile.DoesNotExist:
+            pass
+        
+        # Extract transaction ID from message
+        txn_match = re.search(r'^([A-Z0-9]+) Confirmed', mpesa_message)
+        if not txn_match:
+            return Response({'error': 'Could not find transaction ID in the message. Please paste the full M-Pesa confirmation message.'}, status=400)
+        transaction_id = txn_match.group(1)
+        
+        # Check for duplicate transaction
+        if Deposit.objects.filter(transaction_id=transaction_id).exists():
+            return Response({'error': 'This transaction has already been used. Please check your deposit history.'}, status=400)
+        
+        # Extract amount from message
+        amount_match = re.search(r'Ksh([\d,]+\.?\d*)', mpesa_message)
+        if not amount_match:
+            return Response({'error': 'Could not find amount in the message. Please paste the full M-Pesa confirmation message.'}, status=400)
+        extracted_amount = Decimal(amount_match.group(1).replace(',', ''))
+        
+        # Use the amount from the message (not user input) for security
+        amount = extracted_amount
+        
+        if amount < 520:
+            return Response({'error': f'Minimum deposit is KES 520. You paid KES {amount}'}, status=400)
+        
+        # Create deposit record
+        user = User.objects.get(id=user_id)
+        deposit = Deposit.objects.create(
+            user=user,
+            amount=amount,
+            transaction_id=transaction_id,
+            phone_number=phone_number,
+            mpesa_message=mpesa_message,
+            verification_status='pending',
+            status='pending'
+        )
+        
+        # Add to wallet temporarily (pending verification)
+        wallet, created = Wallet.objects.get_or_create(user=user)
+        wallet.balance += amount
+        wallet.save()
+        
+        # Create fraud log entry
+        FraudLog.objects.create(
+            user=user,
+            action='deposit_verified',
+            amount=amount,
+            reason=f'Manual deposit via SMS verification. Transaction: {transaction_id}',
+            performed_by='system'
+        )
+        
+        print(f"✅ Manual payment recorded: {user.username} - KES {amount}")
+        print(f"⚠️ Pending admin verification - Transaction ID: {transaction_id}")
+        
+        return Response({
+            'success': True,
+            'message': f'Payment of KES {amount:,.0f} recorded! Funds are available now. Admin will verify within 24-48 hours.',
+            'new_balance': float(wallet.balance),
+            'transaction_id': transaction_id,
+            'pending_verification': True
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        print(f"❌ Manual payment error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== ACCOUNT STATUS FUNCTIONS ==========
+@api_view(['GET'])
+def check_account_status(request):
+    """Check if user account is active, frozen, or banned"""
+    user_id = request.GET.get('user_id')
+    
+    try:
+        profile = UserProfile.objects.get(user_id=user_id)
+        
+        status_info = {
+            'account_status': profile.account_status,
+            'is_active': profile.account_status == 'active',
+            'is_frozen': profile.account_status == 'frozen',
+            'is_banned': profile.account_status == 'banned',
+            'is_approved': profile.is_approved,
+        }
+        
+        if profile.account_status in ['frozen', 'banned']:
+            status_info['message'] = f'Your account is {profile.account_status}. Please contact admin for assistance.'
+            status_info['contact'] = 'support@senti-earn.com'
+        
+        return Response(status_info)
+        
+    except UserProfile.DoesNotExist:
+        return Response({'account_status': 'active', 'is_active': True, 'is_approved': False})
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+def request_unban(request):
+    """Allow banned users to request account reinstatement"""
+    try:
+        user_id = request.data.get('user_id')
+        reason = request.data.get('reason', '')
+        
+        user = User.objects.get(id=user_id)
+        profile = UserProfile.objects.get(user=user)
+        
+        if profile.account_status != 'banned':
+            return Response({'error': 'Your account is not banned'}, status=400)
+        
+        # Create notification for admin
+        print("\n" + "="*60)
+        print(f"📧 ACCOUNT UNBAN REQUEST")
+        print("="*60)
+        print(f"User: {user.username}")
+        print(f"Phone: {profile.phone_number}")
+        print(f"Reason: {reason}")
+        print("="*60)
+        print(f"🔗 Approve here: http://localhost:8000/admin/investments/userprofile/")
+        print("="*60 + "\n")
+        
+        return Response({
+            'success': True,
+            'message': 'Your request has been sent to admin. They will contact you if approved.'
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except UserProfile.DoesNotExist:
+        return Response({'error': 'Profile not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
 
 # ========== PRODUCT FUNCTIONS ==========
 @api_view(['GET'])
@@ -285,6 +498,12 @@ def invest_product(request):
         user = User.objects.get(id=user_id)
         product = InvestmentProduct.objects.get(id=product_id)
         wallet = Wallet.objects.get(user=user)
+        
+        # Check if user is banned or frozen
+        profile = UserProfile.objects.get(user=user)
+        if profile.account_status in ['banned', 'frozen']:
+            return Response({'error': f'Your account is {profile.account_status}. Cannot make investments.'}, status=403)
+            
     except Exception as e:
         return Response({'error': str(e)}, status=404)
     
@@ -381,6 +600,11 @@ def request_withdrawal(request):
         wallet = Wallet.objects.get(user_id=user_id)
         user = User.objects.get(id=user_id)
         profile = UserProfile.objects.get(user=user)
+        
+        # Check if user is banned or frozen
+        if profile.account_status in ['banned', 'frozen']:
+            return Response({'error': f'Your account is {profile.account_status}. Cannot process withdrawals.'}, status=403)
+            
     except Wallet.DoesNotExist:
         return Response({'error': 'Wallet not found'}, status=404)
     except User.DoesNotExist:
@@ -514,3 +738,131 @@ def process_daily_earnings_api(request):
         'users_affected': len(users_affected),
         'message': f'Processed {processed} investments, distributed KES {total_earnings:,.0f} to {len(users_affected)} users'
     })
+
+# ========== REFERRAL SYSTEM API ==========
+
+@api_view(['POST'])
+def track_referral(request):
+    """Track when someone signs up using a referral link"""
+    try:
+        referrer_code = request.data.get('referral_code')
+        referred_phone = request.data.get('phone_number')
+        
+        if not referrer_code:
+            return Response({'success': True})
+        
+        try:
+            referrer = User.objects.get(username=referrer_code)
+        except User.DoesNotExist:
+            return Response({'success': True})
+        
+        if referrer.username == referred_phone:
+            return Response({'success': True})
+        
+        try:
+            referred_user = User.objects.get(username=referred_phone)
+        except User.DoesNotExist:
+            return Response({'success': True})
+        
+        referral, created = Referral.objects.get_or_create(
+            referrer=referrer,
+            referred_user=referred_user
+        )
+        
+        referral_count = Referral.objects.filter(referrer=referrer).count()
+        
+        print(f"📢 REFERRAL: {referrer.username} referred {referred_user.username} (Total: {referral_count})")
+        
+        return Response({
+            'success': True, 
+            'referral_count': referral_count,
+            'is_new_referral': created
+        })
+        
+    except Exception as e:
+        print(f"Referral tracking error: {e}")
+        return Response({'success': True})
+
+@api_view(['GET'])
+def get_referral_info(request):
+    """Get user's referral link, stats, and bonuses"""
+    user_id = request.GET.get('user_id')
+    
+    try:
+        user = User.objects.get(id=user_id)
+        
+        referral_code = user.username
+        referral_count = Referral.objects.filter(referrer=user).count()
+        
+        pending_bonuses = ReferralBonus.objects.filter(user=user, status='pending')
+        claimed_bonuses = ReferralBonus.objects.filter(user=user, status='claimed')
+        
+        pending_total = sum(b.amount for b in pending_bonuses)
+        claimed_total = sum(b.amount for b in claimed_bonuses)
+        
+        referral_link = f"https://senti-earn.netlify.app/signup?ref={referral_code}"
+        
+        try:
+            referred_by = Referral.objects.get(referred_user=user)
+            referrer_name = referred_by.referrer.username
+        except Referral.DoesNotExist:
+            referrer_name = None
+        
+        return Response({
+            'success': True,
+            'referral_code': referral_code,
+            'referral_link': referral_link,
+            'referral_count': referral_count,
+            'referrer_name': referrer_name,
+            'pending_bonuses': [{
+                'id': b.id, 
+                'amount': float(b.amount), 
+                'referred_count': b.referred_count,
+                'created_at': b.created_at.strftime('%Y-%m-%d')
+            } for b in pending_bonuses],
+            'claimed_bonuses': [{
+                'id': b.id, 
+                'amount': float(b.amount), 
+                'claimed_at': b.claimed_at.strftime('%Y-%m-%d %H:%M') if b.claimed_at else 'N/A'
+            } for b in claimed_bonuses],
+            'pending_total': float(pending_total),
+            'claimed_total': float(claimed_total)
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+def claim_bonus(request):
+    """User claims a pending bonus (adds to wallet immediately)"""
+    try:
+        user_id = request.data.get('user_id')
+        bonus_id = request.data.get('bonus_id')
+        
+        if not user_id or not bonus_id:
+            return Response({'error': 'User ID and Bonus ID required'}, status=400)
+        
+        bonus = ReferralBonus.objects.get(id=bonus_id, user_id=user_id, status='pending')
+        
+        bonus.status = 'claimed'
+        bonus.claimed_at = datetime.now()
+        bonus.save()
+        
+        wallet, created = Wallet.objects.get_or_create(user_id=user_id)
+        wallet.balance += bonus.amount
+        wallet.save()
+        
+        print(f"🎁 BONUS CLAIMED: User {user_id} claimed KES {bonus.amount}")
+        
+        return Response({
+            'success': True,
+            'message': f'KES {bonus.amount:,.0f} added to your balance!',
+            'new_balance': float(wallet.balance)
+        })
+        
+    except ReferralBonus.DoesNotExist:
+        return Response({'error': 'Bonus not found or already claimed'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)

@@ -1,7 +1,8 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
-from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog
+from django.utils.html import format_html
+from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog
 from datetime import datetime
 
 # ========== INLINE PROFILE ==========
@@ -14,8 +15,8 @@ class UserProfileInline(admin.StackedInline):
 class CustomUserAdmin(UserAdmin):
     inlines = (UserProfileInline,)
     list_display = ('username', 'get_phone', 'get_full_name', 'get_balance', 'get_total_deposited', 
-                   'get_total_earned', 'get_approval_status', 'get_active_investments', 'date_joined')
-    list_filter = ('profile__is_approved', 'profile__is_kyc_verified', 'date_joined')
+                   'get_total_earned', 'get_approval_status', 'get_account_status', 'get_active_investments', 'date_joined')
+    list_filter = ('profile__is_approved', 'profile__account_status', 'profile__is_kyc_verified', 'date_joined')
     search_fields = ('username', 'profile__phone_number', 'profile__full_name')
     
     def get_phone(self, obj):
@@ -64,9 +65,23 @@ class CustomUserAdmin(UserAdmin):
             else:
                 return "⏳ Pending"
         return "-"
-    get_approval_status.short_description = '✅ Status'
+    get_approval_status.short_description = '✅ Approval'
     
-    actions = ['approve_users', 'reject_users']
+    def get_account_status(self, obj):
+        if hasattr(obj, 'profile'):
+            status_colors = {
+                'active': 'green',
+                'pending_kyc': 'orange',
+                'under_review': 'purple',
+                'frozen': 'blue',
+                'banned': 'red',
+            }
+            color = status_colors.get(obj.profile.account_status, 'gray')
+            return format_html('<span style="color: {};">{}</span>', color, obj.profile.get_account_status_display())
+        return '-'
+    get_account_status.short_description = '🔒 Account Status'
+    
+    actions = ['approve_users', 'reject_users', 'freeze_users', 'unfreeze_users', 'ban_users', 'unban_users']
     
     def approve_users(self, request, queryset):
         count = 0
@@ -87,6 +102,78 @@ class CustomUserAdmin(UserAdmin):
                 count += 1
         self.message_user(request, f"❌ {count} users rejected.")
     reject_users.short_description = "Reject selected users"
+    
+    def freeze_users(self, request, queryset):
+        count = 0
+        for user in queryset:
+            if hasattr(user, 'profile') and user.profile.account_status != 'frozen':
+                user.profile.account_status = 'frozen'
+                user.profile.suspended_by = request.user.username
+                user.profile.suspended_at = datetime.now()
+                user.profile.save()
+                
+                FraudLog.objects.create(
+                    user=user,
+                    action='account_frozen',
+                    reason=f'Account frozen by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"❄️ {count} users frozen!")
+    freeze_users.short_description = "Freeze selected users"
+    
+    def unfreeze_users(self, request, queryset):
+        count = 0
+        for user in queryset:
+            if hasattr(user, 'profile') and user.profile.account_status == 'frozen':
+                user.profile.account_status = 'active'
+                user.profile.save()
+                
+                FraudLog.objects.create(
+                    user=user,
+                    action='account_unfrozen',
+                    reason=f'Account unfrozen by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"✅ {count} users unfrozen!")
+    unfreeze_users.short_description = "Unfreeze selected users"
+    
+    def ban_users(self, request, queryset):
+        count = 0
+        for user in queryset:
+            if hasattr(user, 'profile') and user.profile.account_status != 'banned':
+                user.profile.account_status = 'banned'
+                user.profile.suspended_by = request.user.username
+                user.profile.suspended_at = datetime.now()
+                user.profile.save()
+                
+                FraudLog.objects.create(
+                    user=user,
+                    action='account_banned',
+                    reason=f'Account banned by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"🚫 {count} users banned!")
+    ban_users.short_description = "Ban selected users"
+    
+    def unban_users(self, request, queryset):
+        count = 0
+        for user in queryset:
+            if hasattr(user, 'profile') and user.profile.account_status == 'banned':
+                user.profile.account_status = 'active'
+                user.profile.save()
+                
+                FraudLog.objects.create(
+                    user=user,
+                    action='account_unbanned',
+                    reason=f'Account unbanned by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"✅ {count} users unbanned!")
+    unban_users.short_description = "Unban selected users"
 
 # Unregister default User admin and register custom one
 admin.site.unregister(User)
@@ -95,10 +182,10 @@ admin.site.register(User, CustomUserAdmin)
 # ========== USER PROFILE ADMIN ==========
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone_number', 'full_name', 'is_approved', 'is_kyc_verified', 'created_at')
-    list_filter = ('is_approved', 'is_kyc_verified')
+    list_display = ('user', 'phone_number', 'full_name', 'is_approved', 'account_status', 'is_kyc_verified', 'created_at')
+    list_filter = ('is_approved', 'account_status', 'is_kyc_verified')
     search_fields = ('phone_number', 'full_name', 'user__username')
-    actions = ['approve_profiles', 'reject_profiles']
+    actions = ['approve_profiles', 'reject_profiles', 'freeze_profiles', 'unfreeze_profiles', 'ban_profiles', 'unban_profiles']
     
     def approve_profiles(self, request, queryset):
         count = queryset.update(is_approved=True)
@@ -109,6 +196,80 @@ class UserProfileAdmin(admin.ModelAdmin):
         count = queryset.update(is_approved=False)
         self.message_user(request, f"❌ {count} profiles rejected.")
     reject_profiles.short_description = "Reject selected profiles"
+    
+    def freeze_profiles(self, request, queryset):
+        from datetime import datetime
+        count = 0
+        for profile in queryset:
+            if profile.account_status != 'frozen':
+                profile.account_status = 'frozen'
+                profile.suspended_by = request.user.username
+                profile.suspended_at = datetime.now()
+                profile.save()
+                
+                FraudLog.objects.create(
+                    user=profile.user,
+                    action='account_frozen',
+                    reason=f'Account frozen by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"❄️ {count} profiles frozen!")
+    freeze_profiles.short_description = "Freeze selected profiles"
+    
+    def unfreeze_profiles(self, request, queryset):
+        count = 0
+        for profile in queryset:
+            if profile.account_status == 'frozen':
+                profile.account_status = 'active'
+                profile.save()
+                
+                FraudLog.objects.create(
+                    user=profile.user,
+                    action='account_unfrozen',
+                    reason=f'Account unfrozen by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"✅ {count} profiles unfrozen!")
+    unfreeze_profiles.short_description = "Unfreeze selected profiles"
+    
+    def ban_profiles(self, request, queryset):
+        from datetime import datetime
+        count = 0
+        for profile in queryset:
+            if profile.account_status != 'banned':
+                profile.account_status = 'banned'
+                profile.suspended_by = request.user.username
+                profile.suspended_at = datetime.now()
+                profile.save()
+                
+                FraudLog.objects.create(
+                    user=profile.user,
+                    action='account_banned',
+                    reason=f'Account banned by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"🚫 {count} profiles banned!")
+    ban_profiles.short_description = "Ban selected profiles"
+    
+    def unban_profiles(self, request, queryset):
+        count = 0
+        for profile in queryset:
+            if profile.account_status == 'banned':
+                profile.account_status = 'active'
+                profile.save()
+                
+                FraudLog.objects.create(
+                    user=profile.user,
+                    action='account_unbanned',
+                    reason=f'Account unbanned by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"✅ {count} profiles unbanned!")
+    unban_profiles.short_description = "Unban selected profiles"
 
 # ========== WALLET ADMIN ==========
 @admin.register(Wallet)
@@ -148,6 +309,7 @@ class UserInvestmentAdmin(admin.ModelAdmin):
     list_filter = ('status', 'product__level')
     search_fields = ('user__username', 'product__name')
     readonly_fields = ('total_earned', 'last_earning_date')
+    actions = ['cancel_investments']
     
     def amount_display(self, obj):
         if obj.amount:
@@ -174,20 +336,64 @@ class UserInvestmentAdmin(admin.ModelAdmin):
             return f"✅ {days} days"
         return "❌ Expired"
     days_left.short_description = '⏰ Days Left'
+    
+    def cancel_investments(self, request, queryset):
+        from decimal import Decimal
+        count = 0
+        for investment in queryset:
+            if investment.status == 'active':
+                investment.status = 'cancelled'
+                investment.save()
+                
+                # Refund to wallet
+                wallet = Wallet.objects.get(user=investment.user)
+                wallet.balance += investment.amount
+                wallet.total_withdrawn += investment.amount
+                wallet.save()
+                
+                FraudLog.objects.create(
+                    user=investment.user,
+                    action='investment_cancelled',
+                    amount=investment.amount,
+                    reason=f'Investment cancelled by admin',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"🔄 {count} investments cancelled and refunded!")
+    cancel_investments.short_description = "Cancel selected investments (refund to wallet)"
 
 # ========== DEPOSIT ADMIN ==========
 @admin.register(Deposit)
 class DepositAdmin(admin.ModelAdmin):
-    list_display = ('user', 'amount_display', 'phone_number', 'status_display', 'created_at', 'approved_at', 'approved_by')
-    list_filter = ('status', 'created_at')
-    search_fields = ('user__username', 'transaction_id', 'phone_number')
-    actions = ['approve_deposits', 'reject_deposits']
+    list_display = ('user', 'amount_display', 'transaction_id', 'verification_status_display', 'status_display', 'created_at')
+    list_filter = ('verification_status', 'status', 'created_at')
+    search_fields = ('user__username', 'transaction_id', 'mpesa_message')
+    actions = ['verify_deposits', 'reject_deposits']
     
     def amount_display(self, obj):
         if obj.amount:
             return f"KES {int(obj.amount):,}"
         return "KES 0"
     amount_display.short_description = '💰 Amount'
+    
+    def verification_status_display(self, obj):
+        colors = {
+            'pending': 'orange',
+            'verified': 'green',
+            'rejected': 'red',
+            'disputed': 'purple'
+        }
+        icons = {
+            'pending': '⏳',
+            'verified': '✅',
+            'rejected': '❌',
+            'disputed': '⚠️'
+        }
+        return format_html('<span style="color: {};">{} {}</span>', 
+                          colors.get(obj.verification_status, 'gray'), 
+                          icons.get(obj.verification_status, ''), 
+                          obj.get_verification_status_display())
+    verification_status_display.short_description = '🔍 Verification'
     
     def status_display(self, obj):
         status_map = {
@@ -198,28 +404,70 @@ class DepositAdmin(admin.ModelAdmin):
         return status_map.get(obj.status, obj.status)
     status_display.short_description = '📌 Status'
     
-    def approve_deposits(self, request, queryset):
-        approved_count = 0
+    def verify_deposits(self, request, queryset):
+        from decimal import Decimal
+        from datetime import datetime
+        
+        verified_count = 0
         for deposit in queryset:
-            if deposit.status == 'pending':
-                deposit.status = 'approved'
-                deposit.approved_at = datetime.now()
-                deposit.approved_by = request.user.username
+            if deposit.verification_status == 'pending':
+                deposit.verification_status = 'verified'
+                deposit.verified_by = request.user.username
+                deposit.verified_at = datetime.now()
                 deposit.save()
                 
-                # Add to wallet
-                wallet, created = Wallet.objects.get_or_create(user=deposit.user)
-                wallet.balance += deposit.amount
-                wallet.total_deposited += deposit.amount
-                wallet.save()
-                approved_count += 1
-        self.message_user(request, f"✅ {approved_count} deposits approved! Funds added to wallets.")
-    approve_deposits.short_description = "✅ Approve selected deposits"
+                if deposit.status == 'pending':
+                    deposit.status = 'approved'
+                    deposit.approved_at = datetime.now()
+                    deposit.approved_by = request.user.username
+                    deposit.save()
+                    
+                    wallet, created = Wallet.objects.get_or_create(user=deposit.user)
+                    wallet.balance += deposit.amount
+                    wallet.total_deposited += deposit.amount
+                    wallet.save()
+                
+                FraudLog.objects.create(
+                    user=deposit.user,
+                    action='deposit_verified',
+                    amount=deposit.amount,
+                    reason=f'Deposit verified by admin',
+                    performed_by=request.user.username
+                )
+                verified_count += 1
+                
+        self.message_user(request, f"✅ {verified_count} deposits verified!")
+    verify_deposits.short_description = "Verify selected deposits"
     
     def reject_deposits(self, request, queryset):
-        count = queryset.update(status='rejected')
-        self.message_user(request, f"❌ {count} deposits rejected.")
-    reject_deposits.short_description = "❌ Reject selected deposits"
+        from datetime import datetime
+        from decimal import Decimal
+        
+        rejected_count = 0
+        for deposit in queryset:
+            if deposit.verification_status == 'pending':
+                deposit.verification_status = 'rejected'
+                deposit.verified_by = request.user.username
+                deposit.verified_at = datetime.now()
+                deposit.status = 'rejected'
+                deposit.save()
+                
+                # Reverse balance if it was added
+                wallet = Wallet.objects.get(user=deposit.user)
+                wallet.balance -= deposit.amount
+                wallet.save()
+                
+                FraudLog.objects.create(
+                    user=deposit.user,
+                    action='deposit_rejected',
+                    amount=deposit.amount,
+                    reason=f'Deposit rejected by admin',
+                    performed_by=request.user.username
+                )
+                rejected_count += 1
+                
+        self.message_user(request, f"❌ {rejected_count} deposits rejected and balances reversed!")
+    reject_deposits.short_description = "Reject selected deposits"
 
 # ========== WITHDRAWAL ADMIN ==========
 @admin.register(Withdrawal)
@@ -245,6 +493,9 @@ class WithdrawalAdmin(admin.ModelAdmin):
     status_display.short_description = '📌 Status'
     
     def approve_withdrawals(self, request, queryset):
+        from decimal import Decimal
+        from datetime import datetime
+        
         approved_count = 0
         for withdrawal in queryset:
             if withdrawal.status == 'pending':
@@ -253,7 +504,6 @@ class WithdrawalAdmin(admin.ModelAdmin):
                 withdrawal.approved_by = request.user.username
                 withdrawal.save()
                 
-                # Deduct from wallet
                 wallet = Wallet.objects.get(user=withdrawal.user)
                 wallet.balance -= withdrawal.amount
                 wallet.total_withdrawn += withdrawal.amount
@@ -263,6 +513,9 @@ class WithdrawalAdmin(admin.ModelAdmin):
     approve_withdrawals.short_description = "✅ Approve selected withdrawals"
     
     def reject_withdrawals(self, request, queryset):
+        from decimal import Decimal
+        from datetime import datetime
+        
         count = 0
         for withdrawal in queryset:
             if withdrawal.status == 'pending':
@@ -283,3 +536,59 @@ class DailyEarningsLogAdmin(admin.ModelAdmin):
             return f"KES {int(obj.total_earnings):,}"
         return "KES 0"
     total_earnings_display.short_description = '💰 Total Earnings'
+
+# ========== REFERRAL ADMIN ==========
+
+@admin.register(Referral)
+class ReferralAdmin(admin.ModelAdmin):
+    list_display = ('referrer', 'referred_user', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('referrer__username', 'referred_user__username')
+    readonly_fields = ('created_at',)
+
+@admin.register(ReferralBonus)
+class ReferralBonusAdmin(admin.ModelAdmin):
+    list_display = ('user', 'amount', 'referred_count', 'status', 'created_at', 'claimed_at')
+    list_filter = ('status', 'created_at')
+    search_fields = ('user__username',)
+    actions = ['approve_bonuses']
+    
+    def approve_bonuses(self, request, queryset):
+        from decimal import Decimal
+        from datetime import datetime
+        
+        approved_count = 0
+        for bonus in queryset:
+            if bonus.status == 'pending':
+                bonus.status = 'claimed'
+                bonus.claimed_at = datetime.now()
+                bonus.approved_by = request.user.username
+                bonus.save()
+                
+                wallet, created = Wallet.objects.get_or_create(user=bonus.user)
+                wallet.balance += bonus.amount
+                wallet.save()
+                approved_count += 1
+        
+        self.message_user(request, f"✅ {approved_count} bonuses approved and added to wallets!")
+    approve_bonuses.short_description = "✅ Approve selected bonuses (adds to wallet)"
+    
+    def get_readonly_fields(self, request, obj=None):
+        if obj:
+            return ('created_at', 'claimed_at', 'approved_by')
+        return ()
+
+# ========== FRAUD LOG ADMIN ==========
+
+@admin.register(FraudLog)
+class FraudLogAdmin(admin.ModelAdmin):
+    list_display = ('user', 'action', 'amount_display', 'performed_by', 'created_at')
+    list_filter = ('action', 'created_at')
+    search_fields = ('user__username', 'reason')
+    readonly_fields = ('created_at',)
+    
+    def amount_display(self, obj):
+        if obj.amount:
+            return f"KES {int(obj.amount):,}"
+        return "KES 0"
+    amount_display.short_description = '💰 Amount'

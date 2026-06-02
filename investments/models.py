@@ -4,13 +4,31 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 
 class UserProfile(models.Model):
+    ACCOUNT_STATUS = [
+        ('active', 'Active'),
+        ('pending_kyc', 'Pending KYC Verification'),
+        ('under_review', 'Under Review'),
+        ('frozen', 'Frozen'),
+        ('banned', 'Banned'),
+    ]
+    
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     phone_number = models.CharField(max_length=15, unique=True)
     full_name = models.CharField(max_length=100, blank=True, null=True)
     id_number = models.CharField(max_length=20, blank=True, null=True)
     is_kyc_verified = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
+    account_status = models.CharField(max_length=20, choices=ACCOUNT_STATUS, default='active')
+    suspension_reason = models.TextField(blank=True, null=True)
+    suspended_by = models.CharField(max_length=100, blank=True, null=True)
+    suspended_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    def is_banned(self):
+        return self.account_status == 'banned'
+    
+    def is_frozen(self):
+        return self.account_status == 'frozen'
     
     def __str__(self):
         return f"{self.user.username} - {self.phone_number} ({'Approved' if self.is_approved else 'Pending'})"
@@ -84,15 +102,27 @@ class Deposit(models.Model):
         ('rejected', 'Rejected'),
     ]
     
+    VERIFICATION_STATUS = [
+        ('pending', 'Pending Verification'),
+        ('verified', 'Verified'),
+        ('rejected', 'Rejected'),
+        ('disputed', 'Disputed'),
+    ]
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='deposits')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     transaction_id = models.CharField(max_length=100, unique=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     mpesa_receipt = models.CharField(max_length=50, blank=True, null=True)
+    mpesa_message = models.TextField(blank=True, null=True)
+    verification_status = models.CharField(max_length=20, choices=VERIFICATION_STATUS, default='pending')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.CharField(max_length=100, blank=True, null=True)
+    verified_by = models.CharField(max_length=100, blank=True, null=True)
+    verified_at = models.DateTimeField(blank=True, null=True)
+    rejection_reason = models.TextField(blank=True, null=True)
     
     def __str__(self):
         return f"{self.user.username} - KES {self.amount} ({self.status})"
@@ -124,3 +154,56 @@ class DailyEarningsLog(models.Model):
     
     def __str__(self):
         return f"📊 {self.processed_at.date()} - KES {self.total_earnings:,.2f} to {self.users_affected} users"
+
+# ========== REFERRAL SYSTEM MODELS ==========
+
+class Referral(models.Model):
+    """Tracks who referred whom"""
+    referrer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals_made')
+    referred_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='referred_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.referrer.username} referred {self.referred_user.username}"
+
+class ReferralBonus(models.Model):
+    """Bonuses given to users for referrals (Admin adds manually)"""
+    STATUS_CHOICES = [
+        ('pending', '⏳ Pending'),
+        ('claimed', '✅ Claimed'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referral_bonuses')
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    referred_count = models.IntegerField(help_text="How many referrals triggered this bonus")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.CharField(max_length=100, blank=True, null=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - KES {self.amount} ({self.status})"
+
+# ========== FRAUD LOG MODEL ==========
+
+class FraudLog(models.Model):
+    ACTION_CHOICES = [
+        ('deposit_verified', 'Deposit Verified'),
+        ('deposit_rejected', 'Deposit Rejected'),
+        ('account_frozen', 'Account Frozen'),
+        ('account_unfrozen', 'Account Unfrozen'),
+        ('account_banned', 'Account Banned'),
+        ('account_unbanned', 'Account Unbanned'),
+        ('investment_cancelled', 'Investment Cancelled'),
+        ('balance_adjusted', 'Balance Adjusted'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fraud_logs')
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    reason = models.TextField()
+    performed_by = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.action} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"

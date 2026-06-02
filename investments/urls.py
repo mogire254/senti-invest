@@ -9,6 +9,10 @@ urlpatterns = [
     path('api/signup/', views.signup, name='signup'),
     path('api/login/', views.login_view, name='login'),
     
+    # Account Status
+    path('api/check-account-status/', views.check_account_status, name='check-account-status'),
+    path('api/request-unban/', views.request_unban, name='request-unban'),
+    
     # Products and Investments
     path('api/products/', views.get_products, name='products'),
     path('api/invest/', views.invest_product, name='invest'),
@@ -22,6 +26,14 @@ urlpatterns = [
     path('api/mpesa-deposit/', views.request_mpesa_deposit, name='mpesa-deposit'),
     path('api/verify-payment/', views.verify_mpesa_payment, name='verify-payment'),
     
+    # Manual Payment Verification (NEW)
+    path('api/verify-manual-payment/', views.verify_manual_payment, name='verify-manual-payment'),
+    
     # Daily Earnings
     path('api/process-daily-earnings/', views.process_daily_earnings_api, name='process-daily'),
+    
+    # Referral System
+    path('api/track-referral/', views.track_referral, name='track-referral'),
+    path('api/referral-info/', views.get_referral_info, name='referral-info'),
+    path('api/claim-bonus/', views.claim_bonus, name='claim-bonus'),
 ]
