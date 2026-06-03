@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import User
 from decimal import Decimal
 from datetime import datetime, timedelta
+import random
+import string
 
 class UserProfile(models.Model):
     ACCOUNT_STATUS = [
@@ -16,13 +18,26 @@ class UserProfile(models.Model):
     phone_number = models.CharField(max_length=15, unique=True)
     full_name = models.CharField(max_length=100, blank=True, null=True)
     id_number = models.CharField(max_length=20, blank=True, null=True)
+    
+    # Referral fields
+    referral_code = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    referred_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
+    
     is_kyc_verified = models.BooleanField(default=False)
     is_approved = models.BooleanField(default=False)
-    account_status = models.CharField(max_length=20, choices=ACCOUNT_STATUS, default='active')
+    account_status = models.CharField(max_length=20, choices=ACCOUNT_STATUS, default='pending_kyc')
     suspension_reason = models.TextField(blank=True, null=True)
     suspended_by = models.CharField(max_length=100, blank=True, null=True)
     suspended_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    def generate_referral_code(self):
+        """Generate unique referral code from phone number"""
+        if not self.referral_code:
+            phone_suffix = self.phone_number[-6:] if len(self.phone_number) >= 6 else self.phone_number
+            random_suffix = random.randint(100, 999)
+            self.referral_code = f"REF{phone_suffix}{random_suffix}"
+        return self.referral_code
     
     def is_banned(self):
         return self.account_status == 'banned'
@@ -39,13 +54,14 @@ class Wallet(models.Model):
     total_deposited = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_withdrawn = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_earned = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_invested = models.DecimalField(max_digits=12, decimal_places=2, default=0)  # ✅ ADDED THIS FIELD
     
     def __str__(self):
         return f"{self.user.username}: KES {self.balance}"
 
 class InvestmentProduct(models.Model):
     LEVEL_CHOICES = [
-        ('bronze', 'Bronze Level (KES 520-800)'),
+        ('bronze', 'Bronze Level (KES 100-800)'),
         ('silver', 'Silver Level (KES 1,000-1,500)'),
         ('gold', 'Gold Level (KES 2,000-3,000)'),
         ('platinum', 'Platinum Level (KES 5,000-8,000)'),
@@ -155,8 +171,6 @@ class DailyEarningsLog(models.Model):
     def __str__(self):
         return f"📊 {self.processed_at.date()} - KES {self.total_earnings:,.2f} to {self.users_affected} users"
 
-# ========== REFERRAL SYSTEM MODELS ==========
-
 class Referral(models.Model):
     """Tracks who referred whom"""
     referrer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals_made')
@@ -174,8 +188,8 @@ class ReferralBonus(models.Model):
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referral_bonuses')
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    referred_count = models.IntegerField(help_text="How many referrals triggered this bonus")
+    amount = models.DecimalField(max_digits=10, decimal_places=2, default=500)
+    referred_count = models.IntegerField(default=0, help_text="How many referrals triggered this bonus")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     claimed_at = models.DateTimeField(null=True, blank=True)
@@ -183,8 +197,6 @@ class ReferralBonus(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - KES {self.amount} ({self.status})"
-
-# ========== FRAUD LOG MODEL ==========
 
 class FraudLog(models.Model):
     ACTION_CHOICES = [
@@ -207,3 +219,18 @@ class FraudLog(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.action} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+# ========== PASSWORD RESET MODEL ==========
+class PasswordReset(models.Model):
+    """Track password reset codes"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_resets')
+    code = models.CharField(max_length=6)  # 6-digit code
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    
+    def is_valid(self):
+        """Code expires after 10 minutes"""
+        return not self.is_used and (datetime.now() - self.created_at) < timedelta(minutes=10)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.code} ({'Used' if self.is_used else 'Active'})"

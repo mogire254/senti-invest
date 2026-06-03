@@ -9,6 +9,10 @@ urlpatterns = [
     path('api/signup/', views.signup, name='signup'),
     path('api/login/', views.login_view, name='login'),
     
+    # Password Reset
+    path('api/request-password-reset/', views.request_password_reset, name='request-password-reset'),
+    path('api/verify-reset-code/', views.verify_reset_code, name='verify-reset-code'),
+    
     # Account Status
     path('api/check-account-status/', views.check_account_status, name='check-account-status'),
     path('api/request-unban/', views.request_unban, name='request-unban'),
@@ -22,11 +26,14 @@ urlpatterns = [
     path('api/wallet/', views.get_wallet, name='wallet'),
     path('api/withdraw/', views.request_withdrawal, name='withdraw'),
     
+    # Withdrawal History (NEW)
+    path('api/withdrawal-history/', views.get_withdrawal_history, name='withdrawal-history'),
+    
     # M-Pesa Deposit
     path('api/mpesa-deposit/', views.request_mpesa_deposit, name='mpesa-deposit'),
     path('api/verify-payment/', views.verify_mpesa_payment, name='verify-payment'),
     
-    # Manual Payment Verification (NEW)
+    # Manual Payment Verification
     path('api/verify-manual-payment/', views.verify_manual_payment, name='verify-manual-payment'),
     
     # Daily Earnings
