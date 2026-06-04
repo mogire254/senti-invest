@@ -54,7 +54,7 @@ class Wallet(models.Model):
     total_deposited = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_withdrawn = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     total_earned = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    total_invested = models.DecimalField(max_digits=12, decimal_places=2, default=0)  # ✅ ADDED THIS FIELD
+    total_invested = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     
     def __str__(self):
         return f"{self.user.username}: KES {self.balance}"
@@ -172,16 +172,25 @@ class DailyEarningsLog(models.Model):
         return f"📊 {self.processed_at.date()} - KES {self.total_earnings:,.2f} to {self.users_affected} users"
 
 class Referral(models.Model):
-    """Tracks who referred whom"""
+    """Tracks who referred whom with deposit/investment status"""
     referrer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals_made')
     referred_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='referred_by')
     created_at = models.DateTimeField(auto_now_add=True)
     
+    # NEW FIELDS for tracking qualification
+    has_deposited = models.BooleanField(default=False)
+    has_invested = models.BooleanField(default=False)
+    bonus_given = models.BooleanField(default=False)
+    bonus_given_at = models.DateTimeField(null=True, blank=True)
+    first_deposit_date = models.DateTimeField(null=True, blank=True)
+    first_investment_date = models.DateTimeField(null=True, blank=True)
+    
     def __str__(self):
-        return f"{self.referrer.username} referred {self.referred_user.username}"
+        status = "✅" if self.bonus_given else "⏳" if (self.has_deposited and self.has_invested) else "📌"
+        return f"{status} {self.referrer.username} → {self.referred_user.username}"
 
 class ReferralBonus(models.Model):
-    """Bonuses given to users for referrals (Admin adds manually)"""
+    """Bonuses given to users for referrals"""
     STATUS_CHOICES = [
         ('pending', '⏳ Pending'),
         ('claimed', '✅ Claimed'),
@@ -195,8 +204,33 @@ class ReferralBonus(models.Model):
     claimed_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.CharField(max_length=100, blank=True, null=True)
     
+    # NEW FIELDS
+    referral_ids = models.TextField(blank=True, help_text="Comma-separated IDs of referrals that triggered this bonus")
+    bonus_type = models.CharField(max_length=20, default='referral')
+    
     def __str__(self):
         return f"{self.user.username} - KES {self.amount} ({self.status})"
+
+class BalanceAdjustmentLog(models.Model):
+    """Track admin balance adjustments"""
+    ACTION_CHOICES = [
+        ('add', 'Added'),
+        ('subtract', 'Subtracted'),
+        ('bonus', 'Bonus Added'),
+        ('refund', 'Refund'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='balance_adjustments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES)
+    reason = models.TextField()
+    previous_balance = models.DecimalField(max_digits=12, decimal_places=2)
+    new_balance = models.DecimalField(max_digits=12, decimal_places=2)
+    performed_by = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.action} KES {self.amount}"
 
 class FraudLog(models.Model):
     ACTION_CHOICES = [
@@ -220,11 +254,10 @@ class FraudLog(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.action} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
-# ========== PASSWORD RESET MODEL ==========
 class PasswordReset(models.Model):
     """Track password reset codes"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_resets')
-    code = models.CharField(max_length=6)  # 6-digit code
+    code = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
     

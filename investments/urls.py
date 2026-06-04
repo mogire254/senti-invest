@@ -25,15 +25,11 @@ urlpatterns = [
     # Wallet and Transactions
     path('api/wallet/', views.get_wallet, name='wallet'),
     path('api/withdraw/', views.request_withdrawal, name='withdraw'),
-    
-    # Withdrawal History (NEW)
     path('api/withdrawal-history/', views.get_withdrawal_history, name='withdrawal-history'),
     
     # M-Pesa Deposit
     path('api/mpesa-deposit/', views.request_mpesa_deposit, name='mpesa-deposit'),
     path('api/verify-payment/', views.verify_mpesa_payment, name='verify-payment'),
-    
-    # Manual Payment Verification
     path('api/verify-manual-payment/', views.verify_manual_payment, name='verify-manual-payment'),
     
     # Daily Earnings
@@ -43,4 +39,12 @@ urlpatterns = [
     path('api/track-referral/', views.track_referral, name='track-referral'),
     path('api/referral-info/', views.get_referral_info, name='referral-info'),
     path('api/claim-bonus/', views.claim_bonus, name='claim-bonus'),
+    
+    # NEW REFERRAL ENDPOINTS (with status tracking)
+    path('api/referral-list-status/', views.get_referral_list_with_status, name='referral-list-status'),
+    path('api/bonus-history/', views.get_bonus_history, name='bonus-history'),
+    
+    # ADMIN ENDPOINTS (for balance management and referral stats)
+    path('api/admin-adjust-balance/', views.admin_adjust_balance, name='admin-adjust-balance'),
+    path('api/admin-referral-stats/', views.admin_referral_stats, name='admin-referral-stats'),
 ]

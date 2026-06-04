@@ -3,9 +3,11 @@ from rest_framework.response import Response
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.utils import timezone
+from django.db import models
+from django.db.models import Count, Q, Sum
 from decimal import Decimal
 from datetime import datetime, timedelta
-from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset
+from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog
 import random
 import hashlib
 import base64
@@ -502,6 +504,9 @@ def verify_manual_payment(request):
         wallet.total_deposited += amount
         wallet.save()
         
+        # Update referral status after deposit
+        update_referral_status(user)
+        
         FraudLog.objects.create(
             user=user,
             action='deposit_verified',
@@ -675,6 +680,9 @@ def invest_product(request):
         total_earned=Decimal('0')
     )
     
+    # Update referral status after investment
+    update_referral_status(user)
+    
     print(f"✅ Investment successful! New balance: KES {wallet.balance:,.0f}")
     print(f"📊 Investment ID: {investment.id}, Expires: {expiry}")
     
@@ -745,7 +753,7 @@ def get_user_investments(request):
     print(f"Returning {len(data)} investments, total daily: KES {float(total_daily):,.2f}")
     
     return Response({
-        'success': True,  # ← CRITICAL: Frontend expects this!
+        'success': True,
         'investments': data,
         'total_daily_earnings': float(total_daily),
         'count': len(data)
@@ -841,7 +849,7 @@ def get_wallet(request):
         referral_earned = ReferralBonus.objects.filter(
             user_id=user_id, 
             status='claimed'
-        ).aggregate(total=models.Sum('amount'))['total'] or Decimal('0')
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
         
         total_earned = total_earned_from_investments + float(referral_earned)
         
@@ -896,24 +904,209 @@ def get_withdrawal_history(request):
         print(f"❌ Withdrawal history error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== DAILY EARNINGS API ==========
+# ========== REFERRAL STATUS UPDATE FUNCTIONS ==========
+def update_referral_status(user):
+    """Update referral status when user deposits or invests"""
+    try:
+        referral = Referral.objects.filter(referred_user=user).first()
+        if not referral:
+            return
+        
+        # Check if user has deposited
+        wallet = Wallet.objects.get(user=user)
+        if wallet.total_deposited > 0 and not referral.has_deposited:
+            referral.has_deposited = True
+            referral.first_deposit_date = timezone.now()
+            referral.save()
+            print(f"📢 Referral updated: {referral.referrer.username}'s referral {user.username} has deposited")
+        
+        # Check if user has invested
+        investments = UserInvestment.objects.filter(user=user, status='active')
+        if investments.exists() and not referral.has_invested:
+            referral.has_invested = True
+            referral.first_investment_date = timezone.now()
+            referral.save()
+            print(f"📢 Referral updated: {referral.referrer.username}'s referral {user.username} has invested")
+            
+            # Check if referrer now qualifies for bonus
+            check_referral_qualification_for_user(referral.referrer)
+            
+    except Exception as e:
+        print(f"Error updating referral status: {e}")
+
+def check_referral_qualification_for_user(user):
+    """Check if user qualifies for bonus based on their referrals"""
+    qualified_count = Referral.objects.filter(
+        referrer=user,
+        has_deposited=True,
+        has_invested=True,
+        bonus_given=False
+    ).count()
+    
+    if qualified_count >= 5:
+        qualified = Referral.objects.filter(
+            referrer=user,
+            has_deposited=True,
+            has_invested=True,
+            bonus_given=False
+        )[:5]
+        
+        referral_ids = ','.join([str(r.id) for r in qualified])
+        
+        # Check if pending bonus already exists
+        existing = ReferralBonus.objects.filter(
+            user=user,
+            status='pending',
+            bonus_type='referral'
+        ).first()
+        
+        if not existing:
+            bonus = ReferralBonus.objects.create(
+                user=user,
+                amount=Decimal('500'),
+                referred_count=qualified_count,
+                status='pending',
+                bonus_type='referral',
+                referral_ids=referral_ids
+            )
+            print(f"🎁 Auto-created bonus for {user.username} with {qualified_count} qualified referrals")
+
+# ========== REFERRAL WITH STATUS ENDPOINTS ==========
+@api_view(['GET'])
+def get_referral_list_with_status(request):
+    """Get user's referral list with investment status"""
+    try:
+        user_id = request.GET.get('user_id')
+        user = User.objects.get(id=user_id)
+        referrals = Referral.objects.filter(referrer=user).select_related('referred_user')
+        
+        referral_data = []
+        for ref in referrals:
+            try:
+                wallet = Wallet.objects.get(user=ref.referred_user)
+                has_deposit = wallet.total_deposited > 0
+            except:
+                has_deposit = False
+            
+            investments = UserInvestment.objects.filter(user=ref.referred_user, status='active')
+            has_investment = investments.exists()
+            
+            # Update referral record if needed
+            if has_deposit and not ref.has_deposited:
+                ref.has_deposited = True
+                ref.first_deposit_date = timezone.now()
+                ref.save()
+            
+            if has_investment and not ref.has_invested:
+                ref.has_invested = True
+                ref.first_investment_date = timezone.now()
+                ref.save()
+            
+            referral_data.append({
+                'id': ref.id,
+                'phone': ref.referred_user.username,
+                'has_deposited': ref.has_deposited,
+                'has_invested': ref.has_invested,
+                'bonus_given': ref.bonus_given,
+                'joined_date': ref.created_at.strftime('%Y-%m-%d'),
+                'status': 'qualified' if (ref.has_deposited and ref.has_invested and not ref.bonus_given) else 
+                          'invested' if (ref.has_deposited and ref.has_invested) else
+                          'deposited' if ref.has_deposited else
+                          'pending'
+            })
+        
+        # Separate lists
+        qualified = [r for r in referral_data if r['status'] == 'qualified']
+        invested = [r for r in referral_data if r['status'] == 'invested' and not r['bonus_given']]
+        deposited = [r for r in referral_data if r['status'] == 'deposited']
+        pending = [r for r in referral_data if r['status'] == 'pending']
+        
+        return Response({
+            'success': True,
+            'total_referrals': len(referral_data),
+            'qualified_count': len(qualified),
+            'referrals': {
+                'qualified': qualified,
+                'invested': invested,
+                'deposited': deposited,
+                'pending': pending
+            }
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+@api_view(['GET'])
+def get_bonus_history(request):
+    """Get user's bonus claim history"""
+    try:
+        user_id = request.GET.get('user_id')
+        user = User.objects.get(id=user_id)
+        bonuses = ReferralBonus.objects.filter(user=user).order_by('-created_at')
+        
+        history = []
+        for bonus in bonuses:
+            history.append({
+                'id': bonus.id,
+                'amount': float(bonus.amount),
+                'referred_count': bonus.referred_count,
+                'status': bonus.status,
+                'created_at': bonus.created_at.strftime('%Y-%m-%d %H:%M'),
+                'claimed_at': bonus.claimed_at.strftime('%Y-%m-%d %H:%M') if bonus.claimed_at else None,
+                'bonus_type': getattr(bonus, 'bonus_type', 'referral')
+            })
+        
+        total_claimed = sum(b.amount for b in bonuses if b.status == 'claimed')
+        
+        return Response({
+            'success': True,
+            'history': history,
+            'total_claimed': float(total_claimed)
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# ========== FIXED DAILY EARNINGS - SKIPS FROZEN/BANNED ==========
 @api_view(['POST'])
 def process_daily_earnings_api(request):
-    """API endpoint to trigger daily earnings with logging"""
+    """API endpoint to trigger daily earnings - SKIPS frozen/banned users"""
     print("\n" + "="*60)
     print(f"🔄 DAILY EARNINGS PROCESSING STARTED")
     print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
     
-    active_investments = UserInvestment.objects.filter(status='active', expiry_date__gt=timezone.now())
+    # Only get active investments from users who are NOT frozen or banned
+    active_investments = UserInvestment.objects.filter(
+        status='active', 
+        expiry_date__gt=timezone.now(),
+        user__profile__account_status='active',
+        user__profile__is_approved=True
+    )
+    
     total_earnings = Decimal('0')
     processed = 0
     users_affected = set()
+    skipped_frozen = 0
     
-    print(f"📊 Found {active_investments.count()} active investments")
+    print(f"📊 Found {active_investments.count()} active investments from active users")
     
     for investment in active_investments:
         today = timezone.now().date()
+        
+        try:
+            profile = UserProfile.objects.get(user=investment.user)
+            if profile.account_status != 'active':
+                print(f"⏭️ Skipping {investment.user.username} - Account status: {profile.account_status}")
+                skipped_frozen += 1
+                continue
+        except:
+            pass
+        
         if investment.last_earning_date and investment.last_earning_date.date() == today:
             continue
         
@@ -944,11 +1137,12 @@ def process_daily_earnings_api(request):
             investment.save()
             print(f"🎉 Investment completed: {investment.product.name} for {investment.user.username}")
     
-    log = DailyEarningsLog.objects.create(
-        total_earnings=total_earnings,
-        users_affected=len(users_affected),
-        investments_processed=processed
-    )
+    if processed > 0:
+        log = DailyEarningsLog.objects.create(
+            total_earnings=total_earnings,
+            users_affected=len(users_affected),
+            investments_processed=processed
+        )
     
     print("\n" + "="*60)
     print("📊 DAILY EARNINGS SUMMARY")
@@ -956,7 +1150,7 @@ def process_daily_earnings_api(request):
     print(f"   ✅ Investments processed: {processed}")
     print(f"   👥 Users affected: {len(users_affected)}")
     print(f"   💰 Total earnings distributed: KES {total_earnings:,.2f}")
-    print(f"   📝 Log ID: {log.id}")
+    print(f"   ⏭️ Skipped (frozen/banned): {skipped_frozen}")
     print("="*60)
     
     return Response({
@@ -964,11 +1158,116 @@ def process_daily_earnings_api(request):
         'processed': processed,
         'total_earnings': float(total_earnings),
         'users_affected': len(users_affected),
+        'skipped_frozen': skipped_frozen,
         'message': f'Processed {processed} investments, distributed KES {total_earnings:,.0f} to {len(users_affected)} users'
     })
 
-# ========== REFERRAL SYSTEM API ==========
+# ========== ADMIN BALANCE MANAGEMENT ==========
+@api_view(['POST'])
+def admin_adjust_balance(request):
+    """Admin endpoint to manually adjust user balance"""
+    try:
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        user_id = request.data.get('user_id')
+        amount = Decimal(str(request.data.get('amount', 0)))
+        action = request.data.get('action')
+        reason = request.data.get('reason', '')
+        performed_by = request.data.get('performed_by', 'admin')
+        
+        user = User.objects.get(id=user_id)
+        wallet = Wallet.objects.get(user=user)
+        
+        previous_balance = wallet.balance
+        
+        if action == 'add':
+            wallet.balance += amount
+            message = f"Added KES {amount:,.0f} to {user.username}'s balance"
+        elif action == 'subtract':
+            if amount > wallet.balance:
+                return Response({'error': 'Insufficient balance'}, status=400)
+            wallet.balance -= amount
+            message = f"Subtracted KES {amount:,.0f} from {user.username}'s balance"
+        else:
+            return Response({'error': 'Invalid action'}, status=400)
+        
+        wallet.save()
+        
+        BalanceAdjustmentLog.objects.create(
+            user=user,
+            amount=amount,
+            action=action,
+            reason=reason,
+            previous_balance=previous_balance,
+            new_balance=wallet.balance,
+            performed_by=performed_by
+        )
+        
+        FraudLog.objects.create(
+            user=user,
+            action='balance_adjusted',
+            amount=amount,
+            reason=f"Balance {action} by {performed_by}: {reason}",
+            performed_by=performed_by
+        )
+        
+        return Response({
+            'success': True,
+            'message': message,
+            'new_balance': float(wallet.balance),
+            'previous_balance': float(previous_balance)
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except Wallet.DoesNotExist:
+        return Response({'error': 'Wallet not found'}, status=404)
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
+@api_view(['GET'])
+def admin_referral_stats(request):
+    """Get referral statistics for admin dashboard"""
+    try:
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        top_referrers = UserProfile.objects.annotate(
+            referral_count=Count('referrals')
+        ).filter(referral_count__gt=0).order_by('-referral_count')[:10]
+        
+        pending_bonuses = ReferralBonus.objects.filter(status='pending').count()
+        
+        qualified_users = User.objects.annotate(
+            qualified_count=Count('referrals_made', filter=Q(
+                referrals_made__has_deposited=True,
+                referrals_made__has_invested=True,
+                referrals_made__bonus_given=False
+            ))
+        ).filter(qualified_count__gte=5)
+        
+        return Response({
+            'success': True,
+            'top_referrers': [{
+                'username': p.user.username,
+                'phone': p.phone_number,
+                'referral_count': p.referral_count
+            } for p in top_referrers],
+            'pending_bonuses': pending_bonuses,
+            'qualified_users': [{
+                'id': u.id,
+                'username': u.username,
+                'qualified_count': u.qualified_count
+            } for u in qualified_users]
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# ========== REFERRAL SYSTEM API ==========
 @api_view(['POST'])
 def track_referral(request):
     """Track when someone signs up using a referral link"""
@@ -1082,6 +1381,14 @@ def claim_bonus(request):
         bonus.status = 'claimed'
         bonus.claimed_at = timezone.now()
         bonus.save()
+        
+        # Mark referrals as bonus_given
+        if bonus.referral_ids:
+            referral_ids = [int(x) for x in bonus.referral_ids.split(',') if x]
+            Referral.objects.filter(id__in=referral_ids).update(
+                bonus_given=True,
+                bonus_given_at=timezone.now()
+            )
         
         wallet, created = Wallet.objects.get_or_create(user_id=user_id, defaults={
             'balance': 0,

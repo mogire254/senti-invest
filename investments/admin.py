@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django.contrib import messages
 from django.utils import timezone
-from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset
+from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog
 from datetime import datetime
 from decimal import Decimal
 
@@ -344,7 +344,6 @@ class UserInvestmentAdmin(admin.ModelAdmin):
     total_earned_display.short_description = '💰 Total Earned'
     
     def days_left(self, obj):
-        """FIXED: Use timezone-aware datetime"""
         if obj.expiry_date and obj.status == 'active':
             now = timezone.now()
             if obj.expiry_date > now:
@@ -435,7 +434,6 @@ class WithdrawalAdmin(admin.ModelAdmin):
     amount_display.short_description = '💰 Amount'
     
     def approve_withdrawals(self, request, queryset):
-        """Approve ONLY pending withdrawals - Money already deducted when requested"""
         pending_withdrawals = queryset.filter(status='pending')
         approved_count = 0
         skipped_count = queryset.count() - pending_withdrawals.count()
@@ -466,7 +464,6 @@ class WithdrawalAdmin(admin.ModelAdmin):
     approve_withdrawals.short_description = "✅ Approve selected withdrawals (pending only)"
     
     def reject_withdrawals(self, request, queryset):
-        """Reject ONLY pending withdrawals - REFUND money to user's wallet"""
         pending_withdrawals = queryset.filter(status='pending')
         rejected_count = 0
         skipped_count = queryset.count() - pending_withdrawals.count()
@@ -515,32 +512,70 @@ class DailyEarningsLogAdmin(admin.ModelAdmin):
 # ========== REFERRAL ADMIN ==========
 @admin.register(Referral)
 class ReferralAdmin(admin.ModelAdmin):
-    list_display = ('referrer', 'referred_user', 'created_at')
-    list_filter = ('created_at',)
+    list_display = ('referrer', 'referred_user', 'has_deposited', 'has_invested', 'bonus_given', 'created_at')
+    list_filter = ('has_deposited', 'has_invested', 'bonus_given', 'created_at')
     search_fields = ('referrer__username', 'referred_user__username')
+    
+    def get_qualified_status(self, obj):
+        if obj.has_deposited and obj.has_invested and not obj.bonus_given:
+            return "✅ QUALIFIED"
+        elif obj.has_deposited and obj.has_invested:
+            return "💰 Invested (Bonus Given)"
+        elif obj.has_deposited:
+            return "🏦 Deposited Only"
+        else:
+            return "⏳ Pending"
+    get_qualified_status.short_description = 'Status'
 
 @admin.register(ReferralBonus)
 class ReferralBonusAdmin(admin.ModelAdmin):
-    list_display = ('user', 'amount', 'referred_count', 'status', 'created_at')
-    list_filter = ('status', 'created_at')
+    list_display = ('user', 'amount', 'referred_count', 'status', 'bonus_type', 'created_at')
+    list_filter = ('status', 'bonus_type', 'created_at')
     search_fields = ('user__username',)
-    actions = ['approve_bonuses']
+    actions = ['approve_bonuses', 'check_qualification']
     
     def approve_bonuses(self, request, queryset):
         approved_count = 0
-        for bonus in queryset:
-            if bonus.status == 'pending':
-                bonus.status = 'claimed'
-                bonus.claimed_at = timezone.now()
-                bonus.approved_by = request.user.username
-                bonus.save()
-                
-                wallet, created = Wallet.objects.get_or_create(user=bonus.user)
-                wallet.balance += bonus.amount
-                wallet.save()
-                approved_count += 1
-        self.message_user(request, f"✅ {approved_count} bonuses approved!")
+        for bonus in queryset.filter(status='pending'):
+            bonus.status = 'claimed'
+            bonus.claimed_at = timezone.now()
+            bonus.approved_by = request.user.username
+            bonus.save()
+            
+            # Mark referrals as bonus_given
+            if bonus.referral_ids:
+                referral_ids = [int(x) for x in bonus.referral_ids.split(',') if x]
+                Referral.objects.filter(id__in=referral_ids).update(
+                    bonus_given=True,
+                    bonus_given_at=timezone.now()
+                )
+            
+            wallet, created = Wallet.objects.get_or_create(user=bonus.user)
+            wallet.balance += bonus.amount
+            wallet.save()
+            
+            approved_count += 1
+        self.message_user(request, f"✅ {approved_count} bonuses approved and added to wallets!")
     approve_bonuses.short_description = "✅ Approve selected bonuses"
+    
+    def check_qualification(self, request, queryset):
+        for user in queryset:
+            qualified_count = Referral.objects.filter(
+                referrer=user,
+                has_deposited=True,
+                has_invested=True,
+                bonus_given=False
+            ).count()
+            self.message_user(request, f"{user.username} has {qualified_count} qualified referrals")
+    check_qualification.short_description = "Check qualification for selected users"
+
+# ========== BALANCE ADJUSTMENT LOG ADMIN ==========
+@admin.register(BalanceAdjustmentLog)
+class BalanceAdjustmentLogAdmin(admin.ModelAdmin):
+    list_display = ('user', 'amount', 'action', 'performed_by', 'created_at')
+    list_filter = ('action', 'created_at')
+    search_fields = ('user__username', 'reason')
+    readonly_fields = ('created_at',)
 
 # ========== FRAUD LOG ADMIN ==========
 @admin.register(FraudLog)
