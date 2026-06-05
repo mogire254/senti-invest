@@ -1,0 +1,968 @@
+[
+{
+  "model": "admin.logentry",
+  "pk": 3,
+  "fields": {
+    "action_time": "2026-06-03T14:05:05.426Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "1",
+    "object_repr": "0704071967 - KES 100 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 4,
+  "fields": {
+    "action_time": "2026-06-03T14:08:20.699Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "1",
+    "object_repr": "0704071967 - KES 100.00 (claimed)",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 5,
+  "fields": {
+    "action_time": "2026-06-03T14:12:59.957Z",
+    "user": 3,
+    "content_type": 12,
+    "object_id": "1",
+    "object_repr": "0704071967 referred 0704071967",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 6,
+  "fields": {
+    "action_time": "2026-06-03T14:13:44.325Z",
+    "user": 3,
+    "content_type": 12,
+    "object_id": "1",
+    "object_repr": "0704071967 referred 0704071967",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 7,
+  "fields": {
+    "action_time": "2026-06-03T14:15:00.037Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "2",
+    "object_repr": "0704071967 - KES 100 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 8,
+  "fields": {
+    "action_time": "2026-06-03T14:16:48.034Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "3",
+    "object_repr": "0704071967 - KES 500 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 9,
+  "fields": {
+    "action_time": "2026-06-03T17:12:10.825Z",
+    "user": 3,
+    "content_type": 17,
+    "object_id": "2",
+    "object_repr": "0704071967 - KES 300.00 (rejected)",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 10,
+  "fields": {
+    "action_time": "2026-06-03T17:13:20.469Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "4",
+    "object_repr": "0704071967 - KES 500 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 11,
+  "fields": {
+    "action_time": "2026-06-03T20:37:05.307Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "5",
+    "object_repr": "0704071967 - KES 600 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 12,
+  "fields": {
+    "action_time": "2026-06-03T20:39:15.564Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "6",
+    "object_repr": "0704071967 - KES 500 (claimed)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 13,
+  "fields": {
+    "action_time": "2026-06-03T20:40:17.171Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "6",
+    "object_repr": "0704071967 - KES 500.00 (claimed)",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 14,
+  "fields": {
+    "action_time": "2026-06-03T20:40:17.171Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "5",
+    "object_repr": "0704071967 - KES 600.00 (claimed)",
+    "action_flag": 3,
+    "change_message": ""
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 15,
+  "fields": {
+    "action_time": "2026-06-03T21:27:39.960Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "5",
+    "object_repr": "0704071967 - KES 20 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 16,
+  "fields": {
+    "action_time": "2026-06-03T21:30:11.086Z",
+    "user": 3,
+    "content_type": 13,
+    "object_id": "6",
+    "object_repr": "0704071967 - KES 600 (pending)",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "admin.logentry",
+  "pk": 17,
+  "fields": {
+    "action_time": "2026-06-03T21:58:41.301Z",
+    "user": 3,
+    "content_type": 18,
+    "object_id": "1",
+    "object_repr": "0704071967 - add KES 50",
+    "action_flag": 1,
+    "change_message": "[{\"added\": {}}]"
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 3,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$UjURLI9xA9pzTa4Kii8BG1$wJjSeo/MEln6wf3L29c2jU4ngN97Q6zCzhppzLNJmDE=",
+    "last_login": "2026-06-03T11:56:51.402Z",
+    "is_superuser": true,
+    "username": "admin",
+    "first_name": "",
+    "last_name": "",
+    "email": "admin@example.com",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-06-03T11:47:34.320Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 4,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$9Y7gfmfEaPvygNvmFrVYjX$MMYwW5q1n+szaIhOW5EyfxeuciEdsXPp5s2I6j/Zx4w=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "0704071967",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-06-03T12:07:07.348Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "auth.user",
+  "pk": 5,
+  "fields": {
+    "password": "pbkdf2_sha256$1200000$chvyzhuvCPWpFzkhhMS9vm$kurjQw0XRXUXcT6RWaNaXItuCiaT7Yqez3pv859pcVg=",
+    "last_login": null,
+    "is_superuser": false,
+    "username": "0713245673",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2026-06-04T06:49:39.342Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "g5mwkmo74sodbg25t3kc8tode1cy87ko",
+  "fields": {
+    "session_data": ".eJxVjLsOwjAMAP_FM4ocJ32kIzvfUMWxQwsolZp2Qvw7qtQB1rvTvWGM-zaNe9V1nAUGcHD5ZRzTU8sh5BHLfTFpKds6szkSc9pqbovo63q2f4Mp1gkG8Oh8r03oKXiVjNzmrNJSxqwNkbNihQN5R5bJ2ZQZiTCK67BrMPXw-QLYZTdb:1wUkDL:JA1SpfsE8aZmkG961eIY1GQ2LxRNUrnvkAMIj8vIsXs",
+    "expire_date": "2026-06-17T11:56:51.416Z"
+  }
+},
+{
+  "model": "investments.userprofile",
+  "pk": 1,
+  "fields": {
+    "user": 4,
+    "phone_number": "0704071967",
+    "full_name": "muthoni muthoga",
+    "id_number": null,
+    "referral_code": "REF071967546",
+    "referred_by": null,
+    "is_kyc_verified": false,
+    "is_approved": true,
+    "account_status": "active",
+    "suspension_reason": null,
+    "suspended_by": "admin",
+    "suspended_at": "2026-06-03T13:04:51.640Z",
+    "created_at": "2026-06-03T12:07:10.022Z"
+  }
+},
+{
+  "model": "investments.userprofile",
+  "pk": 2,
+  "fields": {
+    "user": 5,
+    "phone_number": "0713245673",
+    "full_name": "hannan",
+    "id_number": null,
+    "referral_code": "REF245673421",
+    "referred_by": null,
+    "is_kyc_verified": false,
+    "is_approved": false,
+    "account_status": "pending_kyc",
+    "suspension_reason": null,
+    "suspended_by": null,
+    "suspended_at": null,
+    "created_at": "2026-06-04T06:49:40.647Z"
+  }
+},
+{
+  "model": "investments.wallet",
+  "pk": 1,
+  "fields": {
+    "user": 4,
+    "balance": "300.00",
+    "total_deposited": "0.00",
+    "total_withdrawn": "650.00",
+    "total_earned": "0.00",
+    "total_invested": "870.00"
+  }
+},
+{
+  "model": "investments.wallet",
+  "pk": 2,
+  "fields": {
+    "user": 5,
+    "balance": "0.00",
+    "total_deposited": "0.00",
+    "total_withdrawn": "0.00",
+    "total_earned": "0.00",
+    "total_invested": "0.00"
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 1,
+  "fields": {
+    "name": "Micro Starter",
+    "level": "bronze",
+    "min_investment": "100.00",
+    "max_investment": null,
+    "daily_earnings_amount": "4.00",
+    "duration_days": 25,
+    "description": "Micro Starter - Earn KES 4 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 2,
+  "fields": {
+    "name": "Micro Plus",
+    "level": "bronze",
+    "min_investment": "150.00",
+    "max_investment": null,
+    "daily_earnings_amount": "6.00",
+    "duration_days": 25,
+    "description": "Micro Plus - Earn KES 6 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 3,
+  "fields": {
+    "name": "Bronze Micro",
+    "level": "bronze",
+    "min_investment": "200.00",
+    "max_investment": null,
+    "daily_earnings_amount": "8.00",
+    "duration_days": 25,
+    "description": "Bronze Micro - Earn KES 8 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 4,
+  "fields": {
+    "name": "Bronze Standard",
+    "level": "bronze",
+    "min_investment": "300.00",
+    "max_investment": null,
+    "daily_earnings_amount": "12.00",
+    "duration_days": 25,
+    "description": "Bronze Standard - Earn KES 12 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 5,
+  "fields": {
+    "name": "Bronze Plus",
+    "level": "bronze",
+    "min_investment": "400.00",
+    "max_investment": null,
+    "daily_earnings_amount": "16.00",
+    "duration_days": 25,
+    "description": "Bronze Plus - Earn KES 16 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 6,
+  "fields": {
+    "name": "Starter Pack",
+    "level": "bronze",
+    "min_investment": "520.00",
+    "max_investment": null,
+    "daily_earnings_amount": "21.00",
+    "duration_days": 25,
+    "description": "Starter Pack - Earn KES 21 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 7,
+  "fields": {
+    "name": "Bronze Fund",
+    "level": "bronze",
+    "min_investment": "800.00",
+    "max_investment": null,
+    "daily_earnings_amount": "32.00",
+    "duration_days": 25,
+    "description": "Bronze Fund - Earn KES 32 daily for 25 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 8,
+  "fields": {
+    "name": "Silver Starter",
+    "level": "silver",
+    "min_investment": "1000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "67.00",
+    "duration_days": 15,
+    "description": "Silver Starter - Earn KES 67 daily for 15 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 9,
+  "fields": {
+    "name": "Silver Plus",
+    "level": "silver",
+    "min_investment": "1500.00",
+    "max_investment": null,
+    "daily_earnings_amount": "100.00",
+    "duration_days": 15,
+    "description": "Silver Plus - Earn KES 100 daily for 15 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 10,
+  "fields": {
+    "name": "Gold Basic",
+    "level": "gold",
+    "min_investment": "2000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "133.00",
+    "duration_days": 15,
+    "description": "Gold Basic - Earn KES 133 daily for 15 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 11,
+  "fields": {
+    "name": "Gold Pro",
+    "level": "gold",
+    "min_investment": "3000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "200.00",
+    "duration_days": 15,
+    "description": "Gold Pro - Earn KES 200 daily for 15 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 12,
+  "fields": {
+    "name": "Platinum Entry",
+    "level": "platinum",
+    "min_investment": "5000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "500.00",
+    "duration_days": 10,
+    "description": "Platinum Entry - Earn KES 500 daily for 10 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 13,
+  "fields": {
+    "name": "Platinum Plus",
+    "level": "platinum",
+    "min_investment": "8000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "800.00",
+    "duration_days": 10,
+    "description": "Platinum Plus - Earn KES 800 daily for 10 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 14,
+  "fields": {
+    "name": "Diamond Basic",
+    "level": "diamond",
+    "min_investment": "10000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "1000.00",
+    "duration_days": 10,
+    "description": "Diamond Basic - Earn KES 1000 daily for 10 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 15,
+  "fields": {
+    "name": "Diamond Pro",
+    "level": "diamond",
+    "min_investment": "12000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "1200.00",
+    "duration_days": 10,
+    "description": "Diamond Pro - Earn KES 1200 daily for 10 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 16,
+  "fields": {
+    "name": "VIP Basic",
+    "level": "vip",
+    "min_investment": "15000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "1500.00",
+    "duration_days": 10,
+    "description": "VIP Basic - Earn KES 1500 daily for 10 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 17,
+  "fields": {
+    "name": "VIP Plus",
+    "level": "vip",
+    "min_investment": "20000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "2000.00",
+    "duration_days": 10,
+    "description": "VIP Plus - Earn KES 2000 daily for 10 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 18,
+  "fields": {
+    "name": "VIP Elite",
+    "level": "vip",
+    "min_investment": "30000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "6000.00",
+    "duration_days": 5,
+    "description": "VIP Elite - Earn KES 6000 daily for 5 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 19,
+  "fields": {
+    "name": "VIP Premium",
+    "level": "vip",
+    "min_investment": "50000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "10000.00",
+    "duration_days": 5,
+    "description": "VIP Premium - Earn KES 10000 daily for 5 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 20,
+  "fields": {
+    "name": "VIP Ultimate",
+    "level": "vip",
+    "min_investment": "70000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "14000.00",
+    "duration_days": 5,
+    "description": "VIP Ultimate - Earn KES 14000 daily for 5 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.investmentproduct",
+  "pk": 21,
+  "fields": {
+    "name": "VIP Diamond",
+    "level": "vip",
+    "min_investment": "100000.00",
+    "max_investment": null,
+    "daily_earnings_amount": "20000.00",
+    "duration_days": 5,
+    "description": "VIP Diamond - Earn KES 20000 daily for 5 days",
+    "image_url": "",
+    "is_active": true
+  }
+},
+{
+  "model": "investments.userinvestment",
+  "pk": 1,
+  "fields": {
+    "user": 4,
+    "product": 1,
+    "amount": "100.00",
+    "invested_at": "2026-06-03T18:33:43.833Z",
+    "expiry_date": "2026-06-28T18:33:43.832Z",
+    "status": "active",
+    "total_earned": "0.00",
+    "last_earning_date": null
+  }
+},
+{
+  "model": "investments.userinvestment",
+  "pk": 2,
+  "fields": {
+    "user": 4,
+    "product": 2,
+    "amount": "150.00",
+    "invested_at": "2026-06-03T18:35:48.447Z",
+    "expiry_date": "2026-06-28T18:35:48.446Z",
+    "status": "active",
+    "total_earned": "0.00",
+    "last_earning_date": null
+  }
+},
+{
+  "model": "investments.userinvestment",
+  "pk": 3,
+  "fields": {
+    "user": 4,
+    "product": 6,
+    "amount": "520.00",
+    "invested_at": "2026-06-03T21:25:59.499Z",
+    "expiry_date": "2026-06-28T21:25:59.498Z",
+    "status": "active",
+    "total_earned": "0.00",
+    "last_earning_date": null
+  }
+},
+{
+  "model": "investments.userinvestment",
+  "pk": 4,
+  "fields": {
+    "user": 4,
+    "product": 1,
+    "amount": "100.00",
+    "invested_at": "2026-06-03T21:28:22.002Z",
+    "expiry_date": "2026-06-28T21:28:22.001Z",
+    "status": "active",
+    "total_earned": "0.00",
+    "last_earning_date": null
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 1,
+  "fields": {
+    "user": 4,
+    "amount": "350.00",
+    "phone_number": "0704071967",
+    "status": "approved",
+    "created_at": "2026-06-03T14:18:17.593Z",
+    "approved_at": "2026-06-03T14:19:03.081Z",
+    "approved_by": "admin"
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 3,
+  "fields": {
+    "user": 4,
+    "amount": "300.00",
+    "phone_number": "0704071967",
+    "status": "rejected",
+    "created_at": "2026-06-03T15:43:19.101Z",
+    "approved_at": null,
+    "approved_by": null
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 4,
+  "fields": {
+    "user": 4,
+    "amount": "300.00",
+    "phone_number": "0704071967",
+    "status": "approved",
+    "created_at": "2026-06-03T16:04:57.022Z",
+    "approved_at": "2026-06-03T16:05:38.434Z",
+    "approved_by": "admin"
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 5,
+  "fields": {
+    "user": 4,
+    "amount": "300.00",
+    "phone_number": "07041071967",
+    "status": "rejected",
+    "created_at": "2026-06-03T17:14:24.827Z",
+    "approved_at": null,
+    "approved_by": null
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 6,
+  "fields": {
+    "user": 4,
+    "amount": "300.00",
+    "phone_number": "07041071967",
+    "status": "approved",
+    "created_at": "2026-06-03T17:16:29.250Z",
+    "approved_at": "2026-06-03T17:16:45.413Z",
+    "approved_by": "admin"
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 7,
+  "fields": {
+    "user": 4,
+    "amount": "300.00",
+    "phone_number": "0714347129",
+    "status": "rejected",
+    "created_at": "2026-06-03T21:31:22.600Z",
+    "approved_at": null,
+    "approved_by": null
+  }
+},
+{
+  "model": "investments.withdrawal",
+  "pk": 8,
+  "fields": {
+    "user": 4,
+    "amount": "300.00",
+    "phone_number": "07041071967",
+    "status": "approved",
+    "created_at": "2026-06-03T21:32:49.027Z",
+    "approved_at": "2026-06-03T21:33:11.066Z",
+    "approved_by": "admin"
+  }
+},
+{
+  "model": "investments.referralbonus",
+  "pk": 2,
+  "fields": {
+    "user": 4,
+    "amount": "100.00",
+    "referred_count": 6,
+    "status": "claimed",
+    "created_at": "2026-06-03T14:15:00.016Z",
+    "claimed_at": "2026-06-03T14:15:19.173Z",
+    "approved_by": "admin",
+    "referral_ids": "",
+    "bonus_type": "referral"
+  }
+},
+{
+  "model": "investments.referralbonus",
+  "pk": 3,
+  "fields": {
+    "user": 4,
+    "amount": "500.00",
+    "referred_count": 50,
+    "status": "claimed",
+    "created_at": "2026-06-03T14:16:48.030Z",
+    "claimed_at": "2026-06-03T14:16:57.873Z",
+    "approved_by": "admin",
+    "referral_ids": "",
+    "bonus_type": "referral"
+  }
+},
+{
+  "model": "investments.referralbonus",
+  "pk": 4,
+  "fields": {
+    "user": 4,
+    "amount": "500.00",
+    "referred_count": 50,
+    "status": "claimed",
+    "created_at": "2026-06-03T17:13:20.466Z",
+    "claimed_at": "2026-06-03T17:13:35.877Z",
+    "approved_by": "admin",
+    "referral_ids": "",
+    "bonus_type": "referral"
+  }
+},
+{
+  "model": "investments.referralbonus",
+  "pk": 5,
+  "fields": {
+    "user": 4,
+    "amount": "20.00",
+    "referred_count": 1,
+    "status": "claimed",
+    "created_at": "2026-06-03T21:27:39.955Z",
+    "claimed_at": "2026-06-03T21:27:56.436Z",
+    "approved_by": "admin",
+    "referral_ids": "",
+    "bonus_type": "referral"
+  }
+},
+{
+  "model": "investments.referralbonus",
+  "pk": 6,
+  "fields": {
+    "user": 4,
+    "amount": "600.00",
+    "referred_count": 70,
+    "status": "claimed",
+    "created_at": "2026-06-03T21:30:11.082Z",
+    "claimed_at": "2026-06-03T21:30:31.291Z",
+    "approved_by": null,
+    "referral_ids": "",
+    "bonus_type": "referral"
+  }
+},
+{
+  "model": "investments.balanceadjustmentlog",
+  "pk": 1,
+  "fields": {
+    "user": 4,
+    "amount": "50.00",
+    "action": "add",
+    "reason": "user request",
+    "previous_balance": "300.00",
+    "new_balance": "350.00",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T21:58:41.289Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 1,
+  "fields": {
+    "user": 4,
+    "action": "account_frozen",
+    "amount": null,
+    "reason": "Account frozen by admin admin",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T12:56:13.210Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 2,
+  "fields": {
+    "user": 4,
+    "action": "account_unfrozen",
+    "amount": null,
+    "reason": "Account unfrozen by admin admin",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T12:57:43.122Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 3,
+  "fields": {
+    "user": 4,
+    "action": "account_banned",
+    "amount": null,
+    "reason": "Account banned by admin admin",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T13:04:51.681Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 4,
+  "fields": {
+    "user": 4,
+    "action": "account_unbanned",
+    "amount": null,
+    "reason": "Account unbanned by admin admin",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T13:06:45.185Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 5,
+  "fields": {
+    "user": 4,
+    "action": "withdrawal_rejected",
+    "amount": "300.00",
+    "reason": "Withdrawal rejected by admin admin - Money refunded",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T17:15:39.886Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 6,
+  "fields": {
+    "user": 4,
+    "action": "withdrawal_approved",
+    "amount": "300.00",
+    "reason": "Withdrawal approved by admin admin",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T17:16:45.442Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 7,
+  "fields": {
+    "user": 4,
+    "action": "withdrawal_rejected",
+    "amount": "300.00",
+    "reason": "Withdrawal rejected by admin admin - Money refunded",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T21:32:04.059Z"
+  }
+},
+{
+  "model": "investments.fraudlog",
+  "pk": 8,
+  "fields": {
+    "user": 4,
+    "action": "withdrawal_approved",
+    "amount": "300.00",
+    "reason": "Withdrawal approved by admin admin",
+    "performed_by": "admin",
+    "created_at": "2026-06-03T21:33:11.129Z"
+  }
+}
+]
