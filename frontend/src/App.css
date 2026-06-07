@@ -2155,3 +2155,36 @@ tr.status-rejected td {
   transform: translateY(-1px);
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
 }
+
+/* ========== SAFARICOM NOTICE STYLES ========== */
+
+.safaricom-notice {
+  background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+  border-left: 4px solid #f59e0b;
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 20px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.safaricom-notice-icon {
+  font-size: 24px;
+}
+
+.safaricom-notice-content {
+  flex: 1;
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.safaricom-notice-content strong {
+  color: #d97706;
+}
+
+.safaricom-notice-content em {
+  font-size: 11px;
+  color: #b45309;
+}

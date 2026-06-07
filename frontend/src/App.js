@@ -76,6 +76,7 @@ function App() {
     const ref = params.get('ref');
     if (ref) {
       setReferralCodeFromUrl(ref);
+      setShowLogin(false); // Force show signup page when referral link is clicked
       console.log("📢 Referral code from URL:", ref);
     }
   }, []);
@@ -786,11 +787,23 @@ function App() {
           </>
         )}
 
-        {/* Deposit Page */}
+        {/* Deposit Page - WITH SAFARICOM NOTICE */}
         {currentPage === 'deposit' && (
           <div className="deposit-container">
             <div className="transaction-card">
               <h2>Deposit Funds</h2>
+              
+              {/* Safaricom Notice */}
+              <div className="safaricom-notice">
+                <div className="safaricom-notice-icon">⚠️</div>
+                <div className="safaricom-notice-content">
+                  <strong>Important Notice:</strong> Safaricom is currently fixing the M-PESA STK prompt issue. 
+                  The automatic payment prompt is temporarily unavailable. 
+                  Please use the <strong>Manual Payment method below</strong> to deposit funds.
+                  <br /><br />
+                  <em>Thank you for your patience and understanding.</em>
+                </div>
+              </div>
               
               <div className="mpesa-instructions-compact">
                 <div className="mpesa-header">
