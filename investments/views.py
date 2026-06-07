@@ -1413,7 +1413,7 @@ def claim_bonus(request):
         return Response({'error': str(e)}, status=500)
 
 # ========== INVESTMENT UPGRADE ENDPOINT ==========
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 def upgrade_investment(request):
     """Upgrade an existing investment to a higher product"""
     try:
