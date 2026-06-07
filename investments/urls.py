@@ -13,6 +13,9 @@ urlpatterns = [
     path('api/request-password-reset/', views.request_password_reset, name='request-password-reset'),
     path('api/verify-reset-code/', views.verify_reset_code, name='verify-reset-code'),
     
+    # PASSWORD RESET PAGE (NO CODE - ADMIN INITIATED)
+    path('reset-password/<str:token>/', views.password_reset_page, name='password-reset-page'),
+    
     # Account Status
     path('api/check-account-status/', views.check_account_status, name='check-account-status'),
     path('api/request-unban/', views.request_unban, name='request-unban'),

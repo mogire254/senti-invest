@@ -4,9 +4,13 @@ from django.contrib.auth.models import User
 from django.utils.html import format_html
 from django.contrib import messages
 from django.utils import timezone
+from django.urls import path
+from django.shortcuts import redirect, render
+from django.template.response import TemplateResponse
 from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog
 from datetime import datetime
 from decimal import Decimal
+import uuid
 
 # ========== INLINE PROFILE ==========
 class UserProfileInline(admin.StackedInline):
@@ -78,7 +82,7 @@ class CustomUserAdmin(UserAdmin):
         return '-'
     get_account_status.short_description = '🔒 Account Status'
     
-    actions = ['approve_users', 'reject_users', 'freeze_users', 'unfreeze_users', 'ban_users', 'unban_users', 'delete_selected_users']
+    actions = ['approve_users', 'reject_users', 'freeze_users', 'unfreeze_users', 'ban_users', 'unban_users', 'delete_selected_users', 'force_password_reset']
     
     def approve_users(self, request, queryset):
         count = 0
@@ -193,6 +197,42 @@ class CustomUserAdmin(UserAdmin):
             count += 1
         self.message_user(request, f"🗑️ {count} users deleted permanently!", messages.ERROR)
     delete_selected_users.short_description = "🗑️ Delete selected users"
+    
+    def force_password_reset(self, request, queryset):
+        """Force password reset for selected users - generates reset link"""
+        for user in queryset:
+            if hasattr(user, 'profile'):
+                # Generate a unique reset token
+                reset_token = str(uuid.uuid4())[:8] + str(uuid.uuid4())[:8]
+                
+                # Store in PasswordReset model
+                PasswordReset.objects.create(
+                    user=user,
+                    code=reset_token,
+                    is_used=False
+                )
+                
+                # Update profile
+                profile = user.profile
+                profile.requires_password_reset = True
+                profile.reset_token = reset_token
+                profile.save()
+                
+                # Generate reset link
+                reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
+                
+                self.message_user(
+                    request,
+                    f"🔑 Password reset for {user.username} - Link: {reset_link}",
+                    messages.SUCCESS
+                )
+            else:
+                self.message_user(
+                    request,
+                    f"❌ No profile found for {user.username}",
+                    messages.ERROR
+                )
+    force_password_reset.short_description = "🔑 Force password reset (generate link)"
 
 # Unregister default User admin and register custom one
 admin.site.unregister(User)
@@ -201,12 +241,12 @@ admin.site.register(User, CustomUserAdmin)
 # ========== USER PROFILE ADMIN ==========
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'phone_number', 'full_name', 'is_approved', 'account_status', 'is_kyc_verified', 'referral_code', 'created_at')
-    list_filter = ('is_approved', 'account_status', 'is_kyc_verified')
+    list_display = ('user', 'phone_number', 'full_name', 'is_approved', 'account_status', 'requires_password_reset', 'is_kyc_verified', 'referral_code', 'created_at')
+    list_filter = ('is_approved', 'account_status', 'requires_password_reset', 'is_kyc_verified')
     search_fields = ('phone_number', 'full_name', 'user__username', 'referral_code')
     list_editable = ('is_approved', 'account_status')
-    readonly_fields = ('referral_code', 'created_at')
-    actions = ['approve_profiles', 'reject_profiles', 'freeze_profiles', 'unfreeze_profiles', 'ban_profiles', 'unban_profiles']
+    readonly_fields = ('referral_code', 'created_at', 'reset_token')
+    actions = ['approve_profiles', 'reject_profiles', 'freeze_profiles', 'unfreeze_profiles', 'ban_profiles', 'unban_profiles', 'force_password_reset_profiles']
     
     def approve_profiles(self, request, queryset):
         count = queryset.update(is_approved=True, account_status='active')
@@ -291,6 +331,30 @@ class UserProfileAdmin(admin.ModelAdmin):
                 count += 1
         self.message_user(request, f"✅ {count} profiles unbanned!", messages.SUCCESS)
     unban_profiles.short_description = "✅ Unban selected profiles"
+    
+    def force_password_reset_profiles(self, request, queryset):
+        """Force password reset for selected profiles"""
+        for profile in queryset:
+            reset_token = str(uuid.uuid4())[:8] + str(uuid.uuid4())[:8]
+            
+            PasswordReset.objects.create(
+                user=profile.user,
+                code=reset_token,
+                is_used=False
+            )
+            
+            profile.requires_password_reset = True
+            profile.reset_token = reset_token
+            profile.save()
+            
+            reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
+            
+            self.message_user(
+                request,
+                f"🔑 Reset link for {profile.phone_number}: {reset_link}",
+                messages.SUCCESS
+            )
+    force_password_reset_profiles.short_description = "🔑 Force password reset (generate link)"
 
 # ========== WALLET ADMIN ==========
 @admin.register(Wallet)

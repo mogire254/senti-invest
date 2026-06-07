@@ -8,6 +8,8 @@ from django.db.models import Count, Q, Sum
 from decimal import Decimal
 from datetime import datetime, timedelta
 from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_protect
 import random
 import hashlib
 import base64
@@ -1072,7 +1074,7 @@ def get_bonus_history(request):
         return Response({'error': str(e)}, status=500)
 
 # ========== FIXED DAILY EARNINGS - SKIPS FROZEN/BANNED ==========
-@api_view(['GET', 'POST'])  # ← FIXED: Allows both GET and POST for cron job
+@api_view(['GET', 'POST'])
 def process_daily_earnings_api(request):
     """API endpoint to trigger daily earnings - SKIPS frozen/banned users"""
     print("\n" + "="*60)
@@ -1414,7 +1416,7 @@ def claim_bonus(request):
         return Response({'error': str(e)}, status=500)
 
 # ========== INVESTMENT UPGRADE ENDPOINT ==========
-@api_view(['POST'])  # ← FIXED: POST only (not GET)
+@api_view(['POST'])
 def upgrade_investment(request):
     """Upgrade an existing investment to a higher product"""
     try:
@@ -1512,3 +1514,64 @@ def upgrade_investment(request):
     except Exception as e:
         print(f"Upgrade error: {str(e)}")
         return Response({'error': str(e)}, status=500)
+
+# ========== PASSWORD RESET PAGE (NO CODE - ADMIN INITIATED) ==========
+@csrf_protect
+def password_reset_page(request, token):
+    """Page where user can set new password using admin-provided token (no code needed)"""
+    
+    # Check if token is valid
+    try:
+        reset_request = PasswordReset.objects.get(code=token, is_used=False)
+        
+        # Check if token is still valid (24 hours)
+        if reset_request.created_at < timezone.now() - timedelta(hours=24):
+            return render(request, 'password_reset.html', {
+                'error': 'This reset link has expired (24 hours). Please contact admin for a new one.'
+            })
+        
+        user = reset_request.user
+        
+    except PasswordReset.DoesNotExist:
+        return render(request, 'password_reset.html', {
+            'error': 'Invalid or already used reset link. Please contact admin.'
+        })
+    
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
+        
+        if not new_password or len(new_password) < 4:
+            return render(request, 'password_reset.html', {
+                'token': token,
+                'error': 'Password must be at least 4 characters long.'
+            })
+        
+        if new_password != confirm_password:
+            return render(request, 'password_reset.html', {
+                'token': token,
+                'error': 'Passwords do not match.'
+            })
+        
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+        
+        # Mark token as used
+        reset_request.is_used = True
+        reset_request.save()
+        
+        # Clear reset flag from profile
+        try:
+            profile = UserProfile.objects.get(user=user)
+            profile.requires_password_reset = False
+            profile.reset_token = None
+            profile.save()
+        except UserProfile.DoesNotExist:
+            pass
+        
+        return render(request, 'password_reset.html', {
+            'success': 'Password has been reset successfully! You will be redirected to login page.'
+        })
+    
+    return render(request, 'password_reset.html', {'token': token})

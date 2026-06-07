@@ -31,6 +31,10 @@ class UserProfile(models.Model):
     suspended_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
+    # Password reset fields
+    requires_password_reset = models.BooleanField(default=False)
+    reset_token = models.CharField(max_length=100, blank=True, null=True)
+    
     def generate_referral_code(self):
         """Generate unique referral code from phone number"""
         if not self.referral_code:
@@ -177,7 +181,6 @@ class Referral(models.Model):
     referred_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='referred_by')
     created_at = models.DateTimeField(auto_now_add=True)
     
-    # NEW FIELDS for tracking qualification
     has_deposited = models.BooleanField(default=False)
     has_invested = models.BooleanField(default=False)
     bonus_given = models.BooleanField(default=False)
@@ -204,7 +207,6 @@ class ReferralBonus(models.Model):
     claimed_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.CharField(max_length=100, blank=True, null=True)
     
-    # NEW FIELDS
     referral_ids = models.TextField(blank=True, help_text="Comma-separated IDs of referrals that triggered this bonus")
     bonus_type = models.CharField(max_length=20, default='referral')
     
@@ -257,13 +259,13 @@ class FraudLog(models.Model):
 class PasswordReset(models.Model):
     """Track password reset codes"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_resets')
-    code = models.CharField(max_length=6)
+    code = models.CharField(max_length=100)  # Increased length for UUID tokens
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
     
     def is_valid(self):
-        """Code expires after 10 minutes"""
-        return not self.is_used and (datetime.now() - self.created_at) < timedelta(minutes=10)
+        """Code expires after 24 hours"""
+        return not self.is_used and (datetime.now() - self.created_at) < timedelta(hours=24)
     
     def __str__(self):
-        return f"{self.user.username} - {self.code} ({'Used' if self.is_used else 'Active'})"
+        return f"{self.user.username} - {self.code[:20]}... ({'Used' if self.is_used else 'Active'})"
