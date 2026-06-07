@@ -928,8 +928,7 @@ def update_referral_status(user):
             referral.save()
             print(f"📢 Referral updated: {referral.referrer.username}'s referral {user.username} has invested")
             
-            # Check if referrer now qualifies for bonus
-            check_referral_qualification_for_user(referral.referrer)
+            # Check if referrer now qualifies for bonus            check_referral_qualification_for_user(referral.referrer)
             
     except Exception as e:
         print(f"Error updating referral status: {e}")
@@ -1411,4 +1410,104 @@ def claim_bonus(request):
     except ReferralBonus.DoesNotExist:
         return Response({'error': 'Bonus not found or already claimed'}, status=404)
     except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# ========== INVESTMENT UPGRADE ENDPOINT ==========
+@api_view(['POST'])
+def upgrade_investment(request):
+    """Upgrade an existing investment to a higher product"""
+    try:
+        user_id = request.data.get('user_id')
+        investment_id = request.data.get('investment_id')
+        new_product_id = request.data.get('new_product_id')
+        
+        if not user_id or not investment_id or not new_product_id:
+            return Response({'error': 'user_id, investment_id, and new_product_id are required'}, status=400)
+        
+        # Get user and existing investment
+        user = User.objects.get(id=user_id)
+        old_investment = UserInvestment.objects.get(id=investment_id, user=user, status='active')
+        old_product = old_investment.product
+        
+        # Get new product
+        new_product = InvestmentProduct.objects.get(id=new_product_id, is_active=True)
+        
+        # Validate upgrade (new product must have higher investment amount)
+        if new_product.min_investment <= old_investment.amount:
+            return Response({
+                'error': f'New product must have higher investment amount. Current: KES {old_investment.amount:,.0f}, New: KES {new_product.min_investment:,.0f}'
+            }, status=400)
+        
+        # Calculate difference to pay
+        difference = new_product.min_investment - old_investment.amount
+        
+        # Get user's wallet
+        try:
+            wallet = Wallet.objects.get(user=user)
+        except Wallet.DoesNotExist:
+            return Response({'error': 'Wallet not found'}, status=404)
+        
+        # Check if user has enough balance to pay the difference
+        if wallet.balance < difference:
+            return Response({
+                'error': f'Insufficient balance. Need KES {difference:,.0f} to upgrade. Available: KES {wallet.balance:,.0f}'
+            }, status=400)
+        
+        # Process upgrade - deduct difference from wallet
+        if difference > 0:
+            wallet.balance -= difference
+            wallet.save()
+        
+        # Calculate new expiry date based on remaining days
+        now = timezone.now()
+        days_remaining = max(0, (old_investment.expiry_date - now).days)
+        days_used = old_product.duration_days - days_remaining
+        remaining_days = new_product.duration_days - days_used
+        if remaining_days < 0:
+            remaining_days = 0
+        
+        new_expiry = now + timedelta(days=remaining_days)
+        
+        # Mark old investment as upgraded (cancelled but keep for history)
+        old_investment.status = 'cancelled'
+        old_investment.save()
+        
+        # Create new upgraded investment
+        new_investment = UserInvestment.objects.create(
+            user=user,
+            product=new_product,
+            amount=new_product.min_investment,
+            expiry_date=new_expiry,
+            status='active',
+            total_earned=Decimal('0')
+        )
+        
+        # Log the upgrade in fraud log
+        FraudLog.objects.create(
+            user=user,
+            action='balance_adjusted',
+            amount=difference,
+            reason=f'Investment upgrade from {old_product.name} (KES {old_investment.amount:,.0f}) to {new_product.name} (KES {new_product.min_investment:,.0f})',
+            performed_by='system'
+        )
+        
+        return Response({
+            'success': True,
+            'message': f'Successfully upgraded from {old_product.name} to {new_product.name}',
+            'new_investment_id': new_investment.id,
+            'amount_paid': float(difference),
+            'new_balance': float(wallet.balance),
+            'daily_earnings': float(new_product.daily_earnings_amount or 0),
+            'expiry_date': new_expiry.strftime('%Y-%m-%d'),
+            'days_left': remaining_days
+        })
+        
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
+    except UserInvestment.DoesNotExist:
+        return Response({'error': 'Investment not found or already completed/cancelled'}, status=404)
+    except InvestmentProduct.DoesNotExist:
+        return Response({'error': 'New product not found'}, status=404)
+    except Exception as e:
+        print(f"Upgrade error: {str(e)}")
         return Response({'error': str(e)}, status=500)

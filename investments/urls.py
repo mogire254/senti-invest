@@ -47,4 +47,7 @@ urlpatterns = [
     # ADMIN ENDPOINTS (for balance management and referral stats)
     path('api/admin-adjust-balance/', views.admin_adjust_balance, name='admin-adjust-balance'),
     path('api/admin-referral-stats/', views.admin_referral_stats, name='admin-referral-stats'),
+    
+    # INVESTMENT UPGRADE ENDPOINT
+    path('api/upgrade-investment/', views.upgrade_investment, name='upgrade-investment'),
 ]
