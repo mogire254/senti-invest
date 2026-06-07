@@ -671,7 +671,7 @@ function App() {
                   {activeInvestments.slice(0, 3).map(inv => (
                     <div key={inv.id} className="investment-card-small">
                       <div className="investment-header"><span className="investment-name">{inv.product_name}</span><span className="investment-level" style={{ color: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span></div>
-                      <div className="investment-details"><span>Amount: {formatCurrency(inv.amount)}</span><span>Daily: {formatCurrency(inv.daily_earnings)}</span><span>{inv.days_left} days left</span></div>
+                      <div className="investment-details"><span>Amount: {formatCurrency(inv.amount)}</span><span>Daily: {formatCurrency(inv.daily_earnings)}</span></div>
                     </div>
                   ))}
                 </div>
@@ -746,7 +746,7 @@ function App() {
           </>
         )}
 
-        {/* My Investments Page - Updated: Removed Total Earned and Expires, Added Upgrade Button */}
+        {/* My Investments Page - COMPACT VERSION with no Days Left, no Progress Bar */}
         {currentPage === 'investments' && (
           <>
             <div className="section-header"><h1>My Investments</h1><p>Track your active investments</p></div>
@@ -759,21 +759,22 @@ function App() {
                 <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
               </div>
             ) : (
-              <div className="investments-list">
+              <div className="investments-list-compact">
                 {activeInvestments.map(inv => (
-                  <div key={inv.id} className="investment-card-full">
-                    <div className="investment-header">
+                  <div key={inv.id} className="investment-card-compact">
+                    <div className="investment-header-compact">
                       <div>
                         <h3>{inv.product_name}</h3>
                         <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
                       </div>
                       <div className="investment-amount">{formatCurrency(inv.amount)}</div>
                     </div>
-                    <div className="investment-stats">
-                      <div><p className="stat-label">Daily</p><p className="stat-value">{formatCurrency(inv.daily_earnings)}</p></div>
-                      <div><p className="stat-label">Days Left</p><p className="stat-value">{inv.days_left}</p></div>
+                    <div className="investment-stats-compact">
+                      <div>
+                        <p className="stat-label">Daily</p>
+                        <p className="stat-value">{formatCurrency(inv.daily_earnings)}</p>
+                      </div>
                     </div>
-                    <div className="progress-bar"><div className="progress-fill" style={{ width: `${((inv.duration_days - inv.days_left) / inv.duration_days) * 100}%` }}></div></div>
                     {inv.product_level !== 'vip' && (
                       <button 
                         className="upgrade-btn" 
