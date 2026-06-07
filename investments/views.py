@@ -928,7 +928,8 @@ def update_referral_status(user):
             referral.save()
             print(f"📢 Referral updated: {referral.referrer.username}'s referral {user.username} has invested")
             
-            # Check if referrer now qualifies for bonus            check_referral_qualification_for_user(referral.referrer)
+            # Check if referrer now qualifies for bonus
+            check_referral_qualification_for_user(referral.referrer)
             
     except Exception as e:
         print(f"Error updating referral status: {e}")
@@ -1071,7 +1072,7 @@ def get_bonus_history(request):
         return Response({'error': str(e)}, status=500)
 
 # ========== FIXED DAILY EARNINGS - SKIPS FROZEN/BANNED ==========
-@api_view(['POST'])
+@api_view(['GET', 'POST'])  # ← FIXED: Allows both GET and POST for cron job
 def process_daily_earnings_api(request):
     """API endpoint to trigger daily earnings - SKIPS frozen/banned users"""
     print("\n" + "="*60)
@@ -1413,7 +1414,7 @@ def claim_bonus(request):
         return Response({'error': str(e)}, status=500)
 
 # ========== INVESTMENT UPGRADE ENDPOINT ==========
-@api_view(['GET', 'POST'])
+@api_view(['POST'])  # ← FIXED: POST only (not GET)
 def upgrade_investment(request):
     """Upgrade an existing investment to a higher product"""
     try:
