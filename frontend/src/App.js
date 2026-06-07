@@ -746,7 +746,7 @@ function App() {
           </>
         )}
 
-        {/* My Investments Page - COMPACT VERSION with no Days Left, no Progress Bar */}
+        {/* My Investments Page - ULTRA COMPACT VERSION (Single Row) */}
         {currentPage === 'investments' && (
           <>
             <div className="section-header"><h1>My Investments</h1><p>Track your active investments</p></div>
@@ -759,25 +759,21 @@ function App() {
                 <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
               </div>
             ) : (
-              <div className="investments-list-compact">
+              <div className="investments-list-ultra">
                 {activeInvestments.map(inv => (
-                  <div key={inv.id} className="investment-card-compact">
-                    <div className="investment-header-compact">
-                      <div>
-                        <h3>{inv.product_name}</h3>
-                        <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
-                      </div>
-                      <div className="investment-amount">{formatCurrency(inv.amount)}</div>
-                    </div>
-                    <div className="investment-stats-compact">
-                      <div>
-                        <p className="stat-label">Daily</p>
-                        <p className="stat-value">{formatCurrency(inv.daily_earnings)}</p>
+                  <div key={inv.id} className="investment-card-ultra">
+                    <div className="investment-info-ultra">
+                      <span className="investment-name-ultra">{inv.product_name}</span>
+                      <span className="investment-level-ultra" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
+                      <span className="investment-amount-ultra">{formatCurrency(inv.amount)}</span>
+                      <div className="investment-daily-ultra">
+                        <span className="investment-daily-label-ultra">Daily:</span>
+                        <span className="investment-daily-value-ultra">{formatCurrency(inv.daily_earnings)}</span>
                       </div>
                     </div>
                     {inv.product_level !== 'vip' && (
                       <button 
-                        className="upgrade-btn" 
+                        className="upgrade-btn-ultra" 
                         onClick={() => openUpgradeModal(inv)}
                       >
                         ⬆️ Upgrade
