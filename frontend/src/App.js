@@ -20,6 +20,14 @@ function App() {
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   
+  // ========== FORGOT PASSWORD MODAL ==========
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPhone, setForgotPhone] = useState('');
+  const [resetToken, setResetToken] = useState(null);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  
   // ========== SIGNUP FORM ==========
   const [signupPhone, setSignupPhone] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -67,8 +75,29 @@ function App() {
   const [referralList, setReferralList] = useState({ qualified: [], invested: [], deposited: [], pending: [] });
   const [bonusHistory, setBonusHistory] = useState([]);
   
+  // ========== MAINTENANCE MODE STATE ==========
+  const [isMaintenance, setIsMaintenance] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState('');
+  
   // ========== CURRENT PAGE ==========
   const [currentPage, setCurrentPage] = useState('dashboard');
+
+  // ========== CHECK MAINTENANCE MODE ON APP START ==========
+  useEffect(() => {
+    checkMaintenanceMode();
+  }, []);
+
+  const checkMaintenanceMode = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/check-maintenance/`);
+      if (response.data.maintenance) {
+        setIsMaintenance(true);
+        setMaintenanceMessage(response.data.message);
+      }
+    } catch (error) {
+      console.error('Failed to check maintenance mode:', error);
+    }
+  };
 
   // ========== GET REFERRAL CODE FROM URL ON MOUNT ==========
   useEffect(() => {
@@ -76,7 +105,7 @@ function App() {
     const ref = params.get('ref');
     if (ref) {
       setReferralCodeFromUrl(ref);
-      setShowLogin(false); // Force show signup page when referral link is clicked
+      setShowLogin(false);
       console.log("📢 Referral code from URL:", ref);
     }
   }, []);
@@ -131,9 +160,85 @@ function App() {
     setTimeout(() => setMessage(''), 5000);
   };
 
+  // ========== FORGOT PASSWORD HANDLERS ==========
+  const handleForgotPassword = async () => {
+    if (!forgotPhone) {
+      showMessage('Please enter your phone number', 'error');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/forgot-password-request/`, {
+        phone_number: forgotPhone
+      });
+      
+      if (response.data.success) {
+        showMessage('Reset request sent! Admin will send you a reset link.', 'success');
+        setShowForgotPassword(false);
+        setForgotPhone('');
+      } else {
+        showMessage(response.data.error || 'Failed to send request', 'error');
+      }
+    } catch (error) {
+      showMessage(error.response?.data?.error || 'Failed to send request', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ========== CHECK URL FOR RESET TOKEN ==========
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+      setResetToken(token);
+      setShowResetPassword(true);
+      setShowLogin(false);
+    }
+  }, []);
+
+  const handleResetPassword = async () => {
+    if (!newPassword) {
+      showMessage('Please enter new password', 'error');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      showMessage('Passwords do not match', 'error');
+      return;
+    }
+    if (newPassword.length < 4) {
+      showMessage('Password must be at least 4 characters', 'error');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/reset-password-with-token/`, {
+        token: resetToken,
+        new_password: newPassword,
+        confirm_password: confirmNewPassword
+      });
+      
+      if (response.data.success) {
+        showMessage('Password reset successfully! Please login.', 'success');
+        setShowResetPassword(false);
+        setResetToken(null);
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setShowLogin(true);
+      } else {
+        showMessage(response.data.error || 'Failed to reset password', 'error');
+      }
+    } catch (error) {
+      showMessage(error.response?.data?.error || 'Failed to reset password', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // ========== OPEN UPGRADE MODAL ==========
   const openUpgradeModal = (investment) => {
-    // Find products with higher investment amount than current
     const higherProducts = products.filter(p => 
       !p.locked && p.min_investment > investment.amount
     ).sort((a, b) => a.min_investment - b.min_investment);
@@ -304,14 +409,17 @@ function App() {
 
   const loadReferralInfo = async (id) => {
     try {
+      console.log("📢 Loading referral info for user:", id);
       const response = await axios.get(`${API_URL}/referral-info/?user_id=${id}`);
+      console.log("📢 Referral API response:", response.data);
+      
       if (response.data.success) {
-        setReferralLink(response.data.referral_link);
-        setReferralCode(response.data.referral_code);
-        setReferralCount(response.data.referral_count);
-        setPendingBonuses(response.data.pending_bonuses);
-        setPendingBonusTotal(response.data.pending_total);
-        setClaimedBonusTotal(response.data.claimed_total);
+        setReferralLink(response.data.referral_link || '');
+        setReferralCode(response.data.referral_code || '');
+        setReferralCount(response.data.referral_count || 0);
+        setPendingBonuses(response.data.pending_bonuses || []);
+        setPendingBonusTotal(response.data.pending_total || 0);
+        setClaimedBonusTotal(response.data.claimed_total || 0);
       }
     } catch (error) {
       console.error('Failed to load referral info:', error);
@@ -340,8 +448,12 @@ function App() {
   };
 
   const copyReferralLink = () => {
-    navigator.clipboard.writeText(referralLink);
-    showMessage('Referral link copied!', 'success');
+    if (referralLink) {
+      navigator.clipboard.writeText(referralLink);
+      showMessage('Referral link copied!', 'success');
+    } else {
+      showMessage('No referral link available. Please refresh the page.', 'error');
+    }
   };
 
   // ========== MANUAL PAYMENT ==========
@@ -560,6 +672,68 @@ function App() {
     showMessage('Logged out successfully', 'success');
   };
 
+  // ========== MAINTENANCE MODE SCREEN ==========
+  if (isMaintenance && !isLoggedIn) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <div className="auth-icon">🔧</div>
+          <h1 className="auth-title">Maintenance Mode</h1>
+          <div className="maintenance-message">
+            <p>{maintenanceMessage}</p>
+          </div>
+          <button className="auth-btn" onClick={() => window.location.reload()}>
+            Refresh
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ========== RESET PASSWORD PAGE (from link) ==========
+  if (showResetPassword) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <div className="auth-icon">🔐</div>
+          <h1 className="auth-title">Reset Password</h1>
+          <p className="auth-subtitle">Enter your new password</p>
+          
+          <input
+            type="password"
+            placeholder="New Password"
+            className="auth-input"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+          
+          <input
+            type="password"
+            placeholder="Confirm New Password"
+            className="auth-input"
+            value={confirmNewPassword}
+            onChange={(e) => setConfirmNewPassword(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleResetPassword()}
+          />
+          
+          <button className="auth-btn login-btn" onClick={handleResetPassword} disabled={isLoading}>
+            {isLoading ? 'Please wait...' : 'Reset Password'}
+          </button>
+          
+          <p className="auth-switch">
+            Remember your password?{' '}
+            <button onClick={() => {
+              setShowResetPassword(false);
+              setShowLogin(true);
+            }}>Login</button>
+          </p>
+          
+          {message && <div className={`auth-message ${messageType}`}>{message}</div>}
+        </div>
+      </div>
+    );
+  }
+
   // ========== LOGIN PAGE ==========
   if (!isLoggedIn && showLogin) {
     return (
@@ -585,6 +759,10 @@ function App() {
             onChange={(e) => setLoginPassword(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
           />
+          
+          <div className="forgot-password-link">
+            <button onClick={() => setShowForgotPassword(true)}>Forgot Password?</button>
+          </div>
           
           <button className="auth-btn login-btn" onClick={handleLogin} disabled={isLoading}>
             {isLoading ? 'Please wait...' : 'Login'}
@@ -626,6 +804,46 @@ function App() {
           </button>
           
           <p className="auth-switch">Already have an account? <button onClick={() => setShowLogin(true)}>Login</button></p>
+          {message && <div className={`auth-message ${messageType}`}>{message}</div>}
+        </div>
+      </div>
+    );
+  }
+
+  // ========== FORGOT PASSWORD MODAL ==========
+  if (showForgotPassword) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <div className="auth-icon">🔐</div>
+          <h1 className="auth-title">Forgot Password</h1>
+          <p className="auth-subtitle">Enter your phone number. Admin will send you a reset link.</p>
+          
+          <input
+            type="tel"
+            placeholder="Phone Number"
+            className="auth-input"
+            value={forgotPhone}
+            onChange={(e) => setForgotPhone(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleForgotPassword()}
+          />
+          
+          <button className="auth-btn login-btn" onClick={handleForgotPassword} disabled={isLoading}>
+            {isLoading ? 'Sending...' : 'Request Reset Link'}
+          </button>
+          
+          <p className="auth-switch">
+            Remember your password?{' '}
+            <button onClick={() => {
+              setShowForgotPassword(false);
+              setShowLogin(true);
+            }}>Back to Login</button>
+          </p>
+          
+          <div className="forgot-info">
+            <small>⚠️ Admin will review your request and send a reset link via WhatsApp/SMS.</small>
+          </div>
+          
           {message && <div className={`auth-message ${messageType}`}>{message}</div>}
         </div>
       </div>
@@ -747,7 +965,7 @@ function App() {
           </>
         )}
 
-        {/* My Investments Page - ULTRA COMPACT VERSION (Single Row) */}
+        {/* My Investments Page */}
         {currentPage === 'investments' && (
           <>
             <div className="section-header"><h1>My Investments</h1><p>Track your active investments</p></div>
@@ -787,13 +1005,12 @@ function App() {
           </>
         )}
 
-        {/* Deposit Page - WITH SAFARICOM NOTICE */}
+        {/* Deposit Page */}
         {currentPage === 'deposit' && (
           <div className="deposit-container">
             <div className="transaction-card">
               <h2>Deposit Funds</h2>
               
-              {/* Safaricom Notice */}
               <div className="safaricom-notice">
                 <div className="safaricom-notice-icon">⚠️</div>
                 <div className="safaricom-notice-content">
@@ -924,10 +1141,19 @@ function App() {
             <div className="referral-link-box">
               <h3>Your Unique Referral Link</h3>
               <div className="copy-link-container">
-                <input type="text" value={referralLink} readOnly className="referral-link-input" />
-                <button onClick={copyReferralLink} className="copy-btn">📋 Copy Link</button>
+                <input 
+                  type="text" 
+                  value={referralLink || 'Loading...'} 
+                  readOnly 
+                  className="referral-link-input" 
+                />
+                <button onClick={copyReferralLink} className="copy-btn" disabled={!referralLink}>
+                  📋 Copy Link
+                </button>
               </div>
-              <p className="referral-code-info">Your referral code: <strong>{referralCode}</strong></p>
+              <p className="referral-code-info">
+                Your referral code: <strong>{referralCode || 'Loading...'}</strong>
+              </p>
               <p className="referral-note">💡 Share this link with friends. They get a bonus when they deposit AND invest!</p>
             </div>
 

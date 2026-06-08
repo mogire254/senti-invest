@@ -5,15 +5,24 @@ urlpatterns = [
     # Test endpoint
     path('api/test/', views.test_api, name='test-api'),
     
+    # Maintenance Mode
+    path('api/check-maintenance/', views.check_maintenance_status, name='check-maintenance'),
+    
     # Authentication
     path('api/signup/', views.signup, name='signup'),
     path('api/login/', views.login_view, name='login'),
     
-    # Password Reset
+    # Forgot Password - NEW (Admin generates link, no code needed)
+    path('api/forgot-password-request/', views.forgot_password_request, name='forgot-password-request'),
+    path('api/check-reset-token/', views.check_reset_token, name='check-reset-token'),
+    path('api/reset-password-with-token/', views.reset_password_with_token, name='reset-password-with-token'),
+    path('api/admin-generate-reset-link/', views.admin_generate_reset_link, name='admin-generate-reset-link'),
+    
+    # Password Reset (Old - kept for compatibility)
     path('api/request-password-reset/', views.request_password_reset, name='request-password-reset'),
     path('api/verify-reset-code/', views.verify_reset_code, name='verify-reset-code'),
     
-    # PASSWORD RESET PAGE (NO CODE - ADMIN INITIATED)
+    # Password Reset Page (Admin initiated - no code)
     path('reset-password/<str:token>/', views.password_reset_page, name='password-reset-page'),
     
     # Account Status
@@ -43,14 +52,14 @@ urlpatterns = [
     path('api/referral-info/', views.get_referral_info, name='referral-info'),
     path('api/claim-bonus/', views.claim_bonus, name='claim-bonus'),
     
-    # NEW REFERRAL ENDPOINTS (with status tracking)
+    # Referral endpoints with status tracking
     path('api/referral-list-status/', views.get_referral_list_with_status, name='referral-list-status'),
     path('api/bonus-history/', views.get_bonus_history, name='bonus-history'),
     
-    # ADMIN ENDPOINTS (for balance management and referral stats)
+    # Admin endpoints
     path('api/admin-adjust-balance/', views.admin_adjust_balance, name='admin-adjust-balance'),
     path('api/admin-referral-stats/', views.admin_referral_stats, name='admin-referral-stats'),
     
-    # INVESTMENT UPGRADE ENDPOINT
+    # Investment Upgrade endpoint
     path('api/upgrade-investment/', views.upgrade_investment, name='upgrade-investment'),
 ]

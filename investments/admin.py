@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.urls import path
 from django.shortcuts import redirect, render
 from django.template.response import TemplateResponse
-from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog
+from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog, MaintenanceMode
 from datetime import datetime
 from decimal import Decimal
 import uuid
@@ -202,23 +202,19 @@ class CustomUserAdmin(UserAdmin):
         """Force password reset for selected users - generates reset link"""
         for user in queryset:
             if hasattr(user, 'profile'):
-                # Generate a unique reset token
-                reset_token = str(uuid.uuid4())[:8] + str(uuid.uuid4())[:8]
+                reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
                 
-                # Store in PasswordReset model
                 PasswordReset.objects.create(
                     user=user,
                     code=reset_token,
                     is_used=False
                 )
                 
-                # Update profile
                 profile = user.profile
                 profile.requires_password_reset = True
                 profile.reset_token = reset_token
                 profile.save()
                 
-                # Generate reset link
                 reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
                 
                 self.message_user(
@@ -234,7 +230,6 @@ class CustomUserAdmin(UserAdmin):
                 )
     force_password_reset.short_description = "🔑 Force password reset (generate link)"
 
-# Unregister default User admin and register custom one
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
 
@@ -335,7 +330,7 @@ class UserProfileAdmin(admin.ModelAdmin):
     def force_password_reset_profiles(self, request, queryset):
         """Force password reset for selected profiles"""
         for profile in queryset:
-            reset_token = str(uuid.uuid4())[:8] + str(uuid.uuid4())[:8]
+            reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
             
             PasswordReset.objects.create(
                 user=profile.user,
@@ -606,7 +601,6 @@ class ReferralBonusAdmin(admin.ModelAdmin):
             bonus.approved_by = request.user.username
             bonus.save()
             
-            # Mark referrals as bonus_given
             if bonus.referral_ids:
                 referral_ids = [int(x) for x in bonus.referral_ids.split(',') if x]
                 Referral.objects.filter(id__in=referral_ids).update(
@@ -659,3 +653,21 @@ class PasswordResetAdmin(admin.ModelAdmin):
     list_display = ('user', 'code', 'created_at', 'is_used')
     list_filter = ('is_used', 'created_at')
     search_fields = ('user__username', 'code')
+
+# ========== MAINTENANCE MODE ADMIN ==========
+@admin.register(MaintenanceMode)
+class MaintenanceModeAdmin(admin.ModelAdmin):
+    list_display = ('is_enabled', 'updated_at', 'updated_by')
+    fields = ('is_enabled', 'message')
+    readonly_fields = ('updated_at',)
+    
+    def save_model(self, request, obj, form, change):
+        if obj.is_enabled:
+            obj.updated_by = request.user.username
+        obj.save()
+        
+    def has_add_permission(self, request):
+        return not MaintenanceMode.objects.exists()
+    
+    def has_delete_permission(self, request, obj=None):
+        return False

@@ -7,7 +7,7 @@ from django.db import models
 from django.db.models import Count, Q, Sum
 from decimal import Decimal
 from datetime import datetime, timedelta
-from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog
+from .models import UserProfile, Wallet, InvestmentProduct, UserInvestment, Deposit, Withdrawal, DailyEarningsLog, Referral, ReferralBonus, FraudLog, PasswordReset, BalanceAdjustmentLog, MaintenanceMode
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_protect
 import random
@@ -17,6 +17,17 @@ import requests
 import uuid
 import json
 import re
+
+# ========== MAINTENANCE MODE HELPER ==========
+def check_maintenance():
+    """Check if maintenance mode is enabled"""
+    try:
+        maintenance = MaintenanceMode.objects.first()
+        if maintenance and maintenance.is_enabled:
+            return maintenance.message
+    except:
+        pass
+    return None
 
 # ========== TEST ENDPOINT ==========
 @api_view(['GET'])
@@ -28,11 +39,30 @@ def test_api(request):
         'timestamp': datetime.now().isoformat()
     })
 
+# ========== MAINTENANCE STATUS ENDPOINT ==========
+@api_view(['GET'])
+def check_maintenance_status(request):
+    """Check if system is in maintenance mode"""
+    maint_msg = check_maintenance()
+    return Response({
+        'maintenance': maint_msg is not None,
+        'message': maint_msg or ''
+    })
+
 # ========== AUTHENTICATION FUNCTIONS ==========
 @api_view(['POST'])
 def signup(request):
     """User signup - requires admin approval with referral tracking"""
     try:
+        # Maintenance check
+        maint_msg = check_maintenance()
+        if maint_msg:
+            return Response({
+                'error': maint_msg,
+                'maintenance': True,
+                'code': 'MAINTENANCE_MODE'
+            }, status=503)
+        
         phone = request.data.get('phone_number')
         password = request.data.get('password')
         full_name = request.data.get('full_name', '')
@@ -57,7 +87,6 @@ def signup(request):
         if User.objects.filter(username=phone).exists():
             return Response({'error': 'User already exists'}, status=400)
         
-        # Create user - NEVER as staff or superuser
         user = User.objects.create_user(
             username=phone, 
             password=password,
@@ -65,7 +94,6 @@ def signup(request):
             is_superuser=False
         )
         
-        # Create profile (NOT approved yet)
         profile = UserProfile.objects.create(
             user=user,
             phone_number=phone,
@@ -74,18 +102,15 @@ def signup(request):
             account_status='pending_kyc'
         )
         
-        # Generate unique referral code for this user
         profile.generate_referral_code()
         profile.save()
         
-        # Track referral if someone referred this user
         if referral_code_param:
             try:
                 referrer_profile = UserProfile.objects.get(referral_code=referral_code_param)
                 profile.referred_by = referrer_profile
                 profile.save()
                 
-                # Also create Referral record
                 Referral.objects.get_or_create(
                     referrer=referrer_profile.user,
                     referred_user=user
@@ -94,7 +119,6 @@ def signup(request):
             except UserProfile.DoesNotExist:
                 print(f"⚠️ Invalid referral code: {referral_code_param}")
         
-        # Create wallet with ZERO balance - NO FREE MONEY
         wallet = Wallet.objects.create(
             user=user, 
             balance=0.00,
@@ -104,7 +128,6 @@ def signup(request):
             total_invested=0
         )
         
-        # Enhanced admin notification
         print("\n" + "="*60)
         print("⚠️ ADMIN ACTION REQUIRED!")
         print("="*60)
@@ -128,11 +151,19 @@ def signup(request):
         print(f"❌ Signup error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== FIXED LOGIN VIEW - USING check_password ==========
 @api_view(['POST'])
 def login_view(request):
     """User login - checks if user exists, approved, and account status"""
     try:
+        # Maintenance check
+        maint_msg = check_maintenance()
+        if maint_msg:
+            return Response({
+                'error': maint_msg,
+                'maintenance': True,
+                'code': 'MAINTENANCE_MODE'
+            }, status=503)
+        
         phone = request.data.get('phone_number')
         password = request.data.get('password')
         
@@ -142,7 +173,6 @@ def login_view(request):
         if not phone or not password:
             return Response({'error': 'Phone and password required'}, status=400)
         
-        # STEP 1: Check if user exists in database
         try:
             user = User.objects.get(username=phone)
         except User.DoesNotExist:
@@ -152,7 +182,6 @@ def login_view(request):
                 'code': 'USER_NOT_FOUND'
             }, status=404)
         
-        # STEP 2: Manually verify password (bypassing authenticate())
         if not user.check_password(password):
             print(f"❌ Invalid password for {phone}")
             return Response({
@@ -160,11 +189,9 @@ def login_view(request):
                 'code': 'INVALID_PASSWORD'
             }, status=401)
         
-        # STEP 3: Check user profile and approval status
         try:
             profile = UserProfile.objects.get(user=user)
             
-            # Check if account is banned or frozen
             if profile.account_status in ['banned', 'frozen']:
                 print(f"🚫 User {phone} - Account {profile.account_status}")
                 return Response({
@@ -175,7 +202,6 @@ def login_view(request):
                     'code': 'ACCOUNT_BLOCKED'
                 }, status=403)
             
-            # Check if approved
             if not profile.is_approved:
                 print(f"⏳ User {phone} - PENDING APPROVAL")
                 return Response({
@@ -191,7 +217,6 @@ def login_view(request):
                 'code': 'PROFILE_MISSING'
             }, status=404)
         
-        # STEP 4: Get wallet balance
         try:
             wallet = Wallet.objects.get(user=user)
             balance = float(wallet.balance)
@@ -220,7 +245,203 @@ def login_view(request):
         print(f"❌ Login error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== PASSWORD RESET FUNCTIONS ==========
+# ========== FORGOT PASSWORD - REQUEST RESET (ADMIN GENERATES LINK) ==========
+@api_view(['POST'])
+def forgot_password_request(request):
+    """User requests password reset - admin notified to generate link"""
+    try:
+        phone = request.data.get('phone_number')
+        
+        print("\n" + "="*60)
+        print(f"🔐 FORGOT PASSWORD REQUEST")
+        print("="*60)
+        print(f"📱 Phone: {phone}")
+        print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*60)
+        
+        if not phone:
+            return Response({'error': 'Phone number required'}, status=400)
+        
+        try:
+            user = User.objects.get(username=phone)
+            profile = UserProfile.objects.get(user=user)
+        except User.DoesNotExist:
+            return Response({'error': 'No account found with this phone number'}, status=404)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=404)
+        
+        reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
+        
+        reset_request = PasswordReset.objects.create(
+            user=user,
+            code=reset_token,
+            is_used=False
+        )
+        
+        profile.requires_password_reset = True
+        profile.reset_token = reset_token
+        profile.save()
+        
+        reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
+        
+        print("\n" + "="*60)
+        print("⚠️ ADMIN ACTION REQUIRED - PASSWORD RESET REQUEST!")
+        print("="*60)
+        print(f"👤 User: {user.username}")
+        print(f"📱 Phone: {phone}")
+        print(f"👤 Name: {profile.full_name or 'Not provided'}")
+        print("="*60)
+        print(f"🔗 RESET LINK (Send to user):")
+        print(f"{reset_link}")
+        print("="*60)
+        print("📝 Instructions:")
+        print("1. Copy the link above")
+        print("2. Send it to the user via WhatsApp/SMS")
+        print("3. User clicks link and sets new password")
+        print("="*60 + "\n")
+        
+        return Response({
+            'success': True,
+            'message': 'Password reset request sent to admin. You will receive a reset link shortly.',
+            'request_id': reset_request.id
+        })
+        
+    except Exception as e:
+        print(f"❌ Forgot password error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+# ========== CHECK RESET TOKEN VALIDITY ==========
+@api_view(['POST'])
+def check_reset_token(request):
+    """Check if reset token is valid before showing reset form"""
+    try:
+        token = request.data.get('token')
+        
+        if not token:
+            return Response({'error': 'Token required'}, status=400)
+        
+        try:
+            reset = PasswordReset.objects.get(code=token, is_used=False)
+        except PasswordReset.DoesNotExist:
+            return Response({'error': 'Invalid or expired reset link'}, status=404)
+        
+        if not reset.is_valid():
+            reset.is_used = True
+            reset.save()
+            return Response({'error': 'Reset link has expired (24 hours). Please request a new one.'}, status=400)
+        
+        return Response({
+            'success': True,
+            'valid': True,
+            'user_id': reset.user.id,
+            'message': 'Token is valid. You can now reset your password.'
+        })
+        
+    except Exception as e:
+        print(f"❌ Check token error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+# ========== RESET PASSWORD WITH TOKEN ==========
+@api_view(['POST'])
+def reset_password_with_token(request):
+    """Reset password using token from link"""
+    try:
+        token = request.data.get('token')
+        new_password = request.data.get('new_password')
+        confirm_password = request.data.get('confirm_password')
+        
+        if not token:
+            return Response({'error': 'Token required'}, status=400)
+        
+        if not new_password:
+            return Response({'error': 'New password required'}, status=400)
+        
+        if new_password != confirm_password:
+            return Response({'error': 'Passwords do not match'}, status=400)
+        
+        if len(new_password) < 4:
+            return Response({'error': 'Password must be at least 4 characters'}, status=400)
+        
+        try:
+            reset = PasswordReset.objects.get(code=token, is_used=False)
+        except PasswordReset.DoesNotExist:
+            return Response({'error': 'Invalid or expired reset link'}, status=404)
+        
+        if not reset.is_valid():
+            reset.is_used = True
+            reset.save()
+            return Response({'error': 'Reset link has expired (24 hours). Please request a new one.'}, status=400)
+        
+        user = reset.user
+        user.set_password(new_password)
+        user.save()
+        
+        reset.is_used = True
+        reset.save()
+        
+        try:
+            profile = UserProfile.objects.get(user=user)
+            profile.requires_password_reset = False
+            profile.reset_token = None
+            profile.save()
+        except UserProfile.DoesNotExist:
+            pass
+        
+        print(f"✅ Password reset successful for {user.username}")
+        
+        return Response({
+            'success': True,
+            'message': 'Password has been reset successfully! You can now login with your new password.'
+        })
+        
+    except Exception as e:
+        print(f"❌ Reset password error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+# ========== ADMIN GENERATE RESET LINK ==========
+@api_view(['POST'])
+def admin_generate_reset_link(request):
+    """Admin endpoint to generate password reset link for a user"""
+    try:
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        phone = request.data.get('phone_number')
+        
+        if not phone:
+            return Response({'error': 'Phone number required'}, status=400)
+        
+        try:
+            user = User.objects.get(username=phone)
+            profile = UserProfile.objects.get(user=user)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        
+        reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
+        
+        PasswordReset.objects.create(
+            user=user,
+            code=reset_token,
+            is_used=False
+        )
+        
+        profile.requires_password_reset = True
+        profile.reset_token = reset_token
+        profile.save()
+        
+        reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
+        
+        return Response({
+            'success': True,
+            'reset_link': reset_link,
+            'message': f'Reset link generated for {user.username}'
+        })
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
+
+# ========== PASSWORD RESET FUNCTIONS (OLD - KEPT FOR COMPATIBILITY) ==========
 @api_view(['POST'])
 def request_password_reset(request):
     """Send verification code to user's phone number"""
@@ -232,7 +453,6 @@ def request_password_reset(request):
         if not phone:
             return Response({'error': 'Phone number required'}, status=400)
         
-        # Check if user exists
         try:
             user = User.objects.get(username=phone)
             profile = UserProfile.objects.get(user=user)
@@ -241,22 +461,18 @@ def request_password_reset(request):
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=404)
         
-        # Generate 6-digit verification code
         reset_code = f"{random.randint(100000, 999999)}"
         
-        # Store the reset code
         reset_request = PasswordReset.objects.create(
             user=user,
             code=reset_code,
             is_used=False
         )
         
-        # Delete old unused codes for this user (keep only last 5)
         old_codes = PasswordReset.objects.filter(user=user, is_used=False).exclude(id=reset_request.id)
         for old in old_codes[:5]:
             old.delete()
         
-        # Print code for testing (in production, send SMS via Africa's Talking)
         print(f"📱 VERIFICATION CODE for {phone}: {reset_code}")
         
         return Response({
@@ -282,13 +498,11 @@ def verify_reset_code(request):
         if not phone or not code:
             return Response({'error': 'Phone number and code required'}, status=400)
         
-        # Find the user
         try:
             user = User.objects.get(username=phone)
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
         
-        # Find the valid reset code
         try:
             reset = PasswordReset.objects.get(
                 user=user,
@@ -298,13 +512,11 @@ def verify_reset_code(request):
         except PasswordReset.DoesNotExist:
             return Response({'error': 'Invalid or expired verification code'}, status=400)
         
-        # Check if code is still valid (10 minutes)
         if not reset.is_valid():
             reset.is_used = True
             reset.save()
             return Response({'error': 'Verification code has expired. Please request a new one.'}, status=400)
         
-        # If new password provided, reset it
         if new_password:
             if len(new_password) < 4:
                 return Response({'error': 'Password must be at least 4 characters'}, status=400)
@@ -312,7 +524,6 @@ def verify_reset_code(request):
             user.set_password(new_password)
             user.save()
             
-            # Mark code as used
             reset.is_used = True
             reset.save()
             
@@ -323,7 +534,6 @@ def verify_reset_code(request):
                 'message': 'Password has been reset successfully. Please login with your new password.'
             })
         else:
-            # Code verified, ready for password reset
             return Response({
                 'success': True,
                 'verified': True,
@@ -338,6 +548,15 @@ def verify_reset_code(request):
 @api_view(['POST'])
 def request_mpesa_deposit(request):
     """Initiate M-Pesa deposit - Requires admin approval with notification"""
+    # Maintenance check
+    maint_msg = check_maintenance()
+    if maint_msg:
+        return Response({
+            'error': maint_msg,
+            'maintenance': True,
+            'code': 'MAINTENANCE_MODE'
+        }, status=503)
+    
     try:
         user_id = request.data.get('user_id')
         amount = request.data.get('amount')
@@ -435,10 +654,18 @@ def verify_mpesa_payment(request):
     except Deposit.DoesNotExist:
         return Response({'error': 'Transaction not found'}, status=404)
 
-# ========== MANUAL PAYMENT VERIFICATION ==========
 @api_view(['POST'])
 def verify_manual_payment(request):
     """Verify manual M-Pesa payment by parsing the SMS message"""
+    # Maintenance check
+    maint_msg = check_maintenance()
+    if maint_msg:
+        return Response({
+            'error': maint_msg,
+            'maintenance': True,
+            'code': 'MAINTENANCE_MODE'
+        }, status=503)
+    
     try:
         user_id = request.data.get('user_id')
         amount = request.data.get('amount')
@@ -506,7 +733,6 @@ def verify_manual_payment(request):
         wallet.total_deposited += amount
         wallet.save()
         
-        # Update referral status after deposit
         update_referral_status(user)
         
         FraudLog.objects.create(
@@ -624,10 +850,18 @@ def get_products(request):
     
     return Response({'products': data})
 
-# ========== FIXED INVEST PRODUCT FUNCTION ==========
 @api_view(['POST'])
 def invest_product(request):
     """Invest in a product"""
+    # Maintenance check
+    maint_msg = check_maintenance()
+    if maint_msg:
+        return Response({
+            'error': maint_msg,
+            'maintenance': True,
+            'code': 'MAINTENANCE_MODE'
+        }, status=503)
+    
     user_id = request.data.get('user_id')
     product_id = request.data.get('product_id')
     amount = Decimal(str(request.data.get('amount', 0)))
@@ -659,19 +893,16 @@ def invest_product(request):
     except Exception as e:
         return Response({'error': str(e)}, status=404)
     
-    # Check exact amount
     if amount != product.min_investment:
         return Response({'error': f'Investment amount must be exactly KES {product.min_investment}'}, status=400)
     
     if amount > wallet.balance:
         return Response({'error': f'Insufficient balance. Available: KES {wallet.balance:,.0f}'}, status=400)
     
-    # Deduct from wallet
     wallet.balance -= amount
     wallet.total_invested = (wallet.total_invested or 0) + amount
     wallet.save()
     
-    # Create investment using timezone-aware datetime
     expiry = timezone.now() + timedelta(days=product.duration_days)
     investment = UserInvestment.objects.create(
         user=user,
@@ -682,7 +913,6 @@ def invest_product(request):
         total_earned=Decimal('0')
     )
     
-    # Update referral status after investment
     update_referral_status(user)
     
     print(f"✅ Investment successful! New balance: KES {wallet.balance:,.0f}")
@@ -696,10 +926,9 @@ def invest_product(request):
         'message': f'Successfully invested KES {amount:,.0f} in {product.name}'
     })
 
-# ========== FIXED GET USER INVESTMENTS - RETURNS SUCCESS FLAG ==========
 @api_view(['GET'])
 def get_user_investments(request):
-    """Get user's active investments - FIXED with success flag"""
+    """Get user's active investments"""
     user_id = request.GET.get('user_id')
     
     print(f"📊 Getting investments for user: {user_id}")
@@ -708,7 +937,6 @@ def get_user_investments(request):
         user = User.objects.get(id=user_id)
         now = timezone.now()
         
-        # Get active investments (not expired)
         investments = UserInvestment.objects.filter(
             user=user, 
             status='active',
@@ -727,16 +955,13 @@ def get_user_investments(request):
     total_daily = Decimal('0')
     
     for inv in investments:
-        # Calculate daily earnings
         daily = inv.product.daily_earnings_amount if inv.product.daily_earnings_amount else Decimal('0')
         total_daily += daily
         
-        # Calculate days left using timezone-aware datetime
         days_left = (inv.expiry_date - now).days
         if days_left < 0:
             days_left = 0
         
-        # Calculate total earned so far
         total_earned = inv.total_earned if inv.total_earned else Decimal('0')
         
         data.append({
@@ -761,10 +986,18 @@ def get_user_investments(request):
         'count': len(data)
     })
 
-# ========== WITHDRAWAL FUNCTIONS ==========
 @api_view(['POST'])
 def request_withdrawal(request):
     """Request a withdrawal with admin notification - Minimum 300 KES"""
+    # Maintenance check
+    maint_msg = check_maintenance()
+    if maint_msg:
+        return Response({
+            'error': maint_msg,
+            'maintenance': True,
+            'code': 'MAINTENANCE_MODE'
+        }, status=503)
+    
     user_id = request.data.get('user_id')
     amount = Decimal(str(request.data.get('amount', 0)))
     phone_number = request.data.get('phone_number')
@@ -799,7 +1032,6 @@ def request_withdrawal(request):
     if amount > wallet.balance:
         return Response({'error': f'Insufficient balance. Available: KES {wallet.balance:,.0f}'}, status=400)
     
-    # DEDUCT IMMEDIATELY
     wallet.balance -= amount
     wallet.total_withdrawn += amount
     wallet.save()
@@ -832,7 +1064,6 @@ def request_withdrawal(request):
         'message': 'Withdrawal request submitted. Money deducted from your balance. Admin will review within 8-12 hours.'
     })
 
-# ========== FIXED GET WALLET ==========
 @api_view(['GET'])
 def get_wallet(request):
     """Get wallet details"""
@@ -843,11 +1074,9 @@ def get_wallet(request):
     try:
         wallet = Wallet.objects.get(user_id=user_id)
         
-        # Calculate total earned from investments
         investments = UserInvestment.objects.filter(user_id=user_id, status='active')
         total_earned_from_investments = sum(float(inv.total_earned or 0) for inv in investments)
         
-        # Get referral bonuses claimed
         referral_earned = ReferralBonus.objects.filter(
             user_id=user_id, 
             status='claimed'
@@ -874,7 +1103,6 @@ def get_wallet(request):
         print(f"❌ Wallet error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== WITHDRAWAL HISTORY ==========
 @api_view(['GET'])
 def get_withdrawal_history(request):
     """Get user's complete withdrawal history (all statuses)"""
@@ -914,7 +1142,6 @@ def update_referral_status(user):
         if not referral:
             return
         
-        # Check if user has deposited
         wallet = Wallet.objects.get(user=user)
         if wallet.total_deposited > 0 and not referral.has_deposited:
             referral.has_deposited = True
@@ -922,7 +1149,6 @@ def update_referral_status(user):
             referral.save()
             print(f"📢 Referral updated: {referral.referrer.username}'s referral {user.username} has deposited")
         
-        # Check if user has invested
         investments = UserInvestment.objects.filter(user=user, status='active')
         if investments.exists() and not referral.has_invested:
             referral.has_invested = True
@@ -930,7 +1156,6 @@ def update_referral_status(user):
             referral.save()
             print(f"📢 Referral updated: {referral.referrer.username}'s referral {user.username} has invested")
             
-            # Check if referrer now qualifies for bonus
             check_referral_qualification_for_user(referral.referrer)
             
     except Exception as e:
@@ -955,7 +1180,6 @@ def check_referral_qualification_for_user(user):
         
         referral_ids = ','.join([str(r.id) for r in qualified])
         
-        # Check if pending bonus already exists
         existing = ReferralBonus.objects.filter(
             user=user,
             status='pending',
@@ -993,7 +1217,6 @@ def get_referral_list_with_status(request):
             investments = UserInvestment.objects.filter(user=ref.referred_user, status='active')
             has_investment = investments.exists()
             
-            # Update referral record if needed
             if has_deposit and not ref.has_deposited:
                 ref.has_deposited = True
                 ref.first_deposit_date = timezone.now()
@@ -1017,7 +1240,6 @@ def get_referral_list_with_status(request):
                           'pending'
             })
         
-        # Separate lists
         qualified = [r for r in referral_data if r['status'] == 'qualified']
         invested = [r for r in referral_data if r['status'] == 'invested' and not r['bonus_given']]
         deposited = [r for r in referral_data if r['status'] == 'deposited']
@@ -1073,7 +1295,7 @@ def get_bonus_history(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
-# ========== FIXED DAILY EARNINGS - SKIPS FROZEN/BANNED ==========
+# ========== DAILY EARNINGS ==========
 @api_view(['GET', 'POST'])
 def process_daily_earnings_api(request):
     """API endpoint to trigger daily earnings - SKIPS frozen/banned users"""
@@ -1082,7 +1304,6 @@ def process_daily_earnings_api(request):
     print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
     
-    # Only get active investments from users who are NOT frozen or banned
     active_investments = UserInvestment.objects.filter(
         status='active', 
         expiry_date__gt=timezone.now(),
@@ -1384,7 +1605,6 @@ def claim_bonus(request):
         bonus.claimed_at = timezone.now()
         bonus.save()
         
-        # Mark referrals as bonus_given
         if bonus.referral_ids:
             referral_ids = [int(x) for x in bonus.referral_ids.split(',') if x]
             Referral.objects.filter(id__in=referral_ids).update(
@@ -1419,6 +1639,15 @@ def claim_bonus(request):
 @api_view(['POST'])
 def upgrade_investment(request):
     """Upgrade an existing investment to a higher product"""
+    # Maintenance check
+    maint_msg = check_maintenance()
+    if maint_msg:
+        return Response({
+            'error': maint_msg,
+            'maintenance': True,
+            'code': 'MAINTENANCE_MODE'
+        }, status=503)
+    
     try:
         user_id = request.data.get('user_id')
         investment_id = request.data.get('investment_id')
@@ -1427,41 +1656,33 @@ def upgrade_investment(request):
         if not user_id or not investment_id or not new_product_id:
             return Response({'error': 'user_id, investment_id, and new_product_id are required'}, status=400)
         
-        # Get user and existing investment
         user = User.objects.get(id=user_id)
         old_investment = UserInvestment.objects.get(id=investment_id, user=user, status='active')
         old_product = old_investment.product
         
-        # Get new product
         new_product = InvestmentProduct.objects.get(id=new_product_id, is_active=True)
         
-        # Validate upgrade (new product must have higher investment amount)
         if new_product.min_investment <= old_investment.amount:
             return Response({
                 'error': f'New product must have higher investment amount. Current: KES {old_investment.amount:,.0f}, New: KES {new_product.min_investment:,.0f}'
             }, status=400)
         
-        # Calculate difference to pay
         difference = new_product.min_investment - old_investment.amount
         
-        # Get user's wallet
         try:
             wallet = Wallet.objects.get(user=user)
         except Wallet.DoesNotExist:
             return Response({'error': 'Wallet not found'}, status=404)
         
-        # Check if user has enough balance to pay the difference
         if wallet.balance < difference:
             return Response({
                 'error': f'Insufficient balance. Need KES {difference:,.0f} to upgrade. Available: KES {wallet.balance:,.0f}'
             }, status=400)
         
-        # Process upgrade - deduct difference from wallet
         if difference > 0:
             wallet.balance -= difference
             wallet.save()
         
-        # Calculate new expiry date based on remaining days
         now = timezone.now()
         days_remaining = max(0, (old_investment.expiry_date - now).days)
         days_used = old_product.duration_days - days_remaining
@@ -1471,11 +1692,9 @@ def upgrade_investment(request):
         
         new_expiry = now + timedelta(days=remaining_days)
         
-        # Mark old investment as upgraded (cancelled but keep for history)
         old_investment.status = 'cancelled'
         old_investment.save()
         
-        # Create new upgraded investment
         new_investment = UserInvestment.objects.create(
             user=user,
             product=new_product,
@@ -1485,7 +1704,6 @@ def upgrade_investment(request):
             total_earned=Decimal('0')
         )
         
-        # Log the upgrade in fraud log
         FraudLog.objects.create(
             user=user,
             action='balance_adjusted',
@@ -1520,11 +1738,9 @@ def upgrade_investment(request):
 def password_reset_page(request, token):
     """Page where user can set new password using admin-provided token (no code needed)"""
     
-    # Check if token is valid
     try:
         reset_request = PasswordReset.objects.get(code=token, is_used=False)
         
-        # Check if token is still valid (24 hours)
         if reset_request.created_at < timezone.now() - timedelta(hours=24):
             return render(request, 'password_reset.html', {
                 'error': 'This reset link has expired (24 hours). Please contact admin for a new one.'
@@ -1553,15 +1769,12 @@ def password_reset_page(request, token):
                 'error': 'Passwords do not match.'
             })
         
-        # Set new password
         user.set_password(new_password)
         user.save()
         
-        # Mark token as used
         reset_request.is_used = True
         reset_request.save()
         
-        # Clear reset flag from profile
         try:
             profile = UserProfile.objects.get(user=user)
             profile.requires_password_reset = False

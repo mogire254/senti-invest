@@ -269,3 +269,19 @@ class PasswordReset(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.code[:20]}... ({'Used' if self.is_used else 'Active'})"
+
+
+# ========== NEW: MAINTENANCE MODE MODEL ==========
+class MaintenanceMode(models.Model):
+    """Control system maintenance mode"""
+    is_enabled = models.BooleanField(default=False)
+    message = models.TextField(default="We are currently performing system maintenance. Please check back shortly. We apologize for the inconvenience.")
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.CharField(max_length=100, blank=True, null=True)
+    
+    def __str__(self):
+        return f"Maintenance: {'ON' if self.is_enabled else 'OFF'}"
+    
+    class Meta:
+        verbose_name = "Maintenance Mode"
+        verbose_name_plural = "Maintenance Mode"
