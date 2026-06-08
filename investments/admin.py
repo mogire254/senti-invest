@@ -202,19 +202,23 @@ class CustomUserAdmin(UserAdmin):
         """Force password reset for selected users - generates reset link"""
         for user in queryset:
             if hasattr(user, 'profile'):
+                # Generate a unique reset token
                 reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
                 
+                # Store in PasswordReset model
                 PasswordReset.objects.create(
                     user=user,
                     code=reset_token,
                     is_used=False
                 )
                 
+                # Update profile
                 profile = user.profile
                 profile.requires_password_reset = True
                 profile.reset_token = reset_token
                 profile.save()
                 
+                # Generate reset link
                 reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
                 
                 self.message_user(
@@ -230,6 +234,7 @@ class CustomUserAdmin(UserAdmin):
                 )
     force_password_reset.short_description = "🔑 Force password reset (generate link)"
 
+# Unregister default User admin and register custom one
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
 
@@ -667,6 +672,7 @@ class MaintenanceModeAdmin(admin.ModelAdmin):
         obj.save()
         
     def has_add_permission(self, request):
+        # Only allow one instance
         return not MaintenanceMode.objects.exists()
     
     def has_delete_permission(self, request, obj=None):

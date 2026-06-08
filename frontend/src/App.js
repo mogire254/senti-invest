@@ -23,10 +23,6 @@ function App() {
   // ========== FORGOT PASSWORD MODAL ==========
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPhone, setForgotPhone] = useState('');
-  const [resetToken, setResetToken] = useState(null);
-  const [showResetPassword, setShowResetPassword] = useState(false);
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   
   // ========== SIGNUP FORM ==========
   const [signupPhone, setSignupPhone] = useState('');
@@ -160,7 +156,7 @@ function App() {
     setTimeout(() => setMessage(''), 5000);
   };
 
-  // ========== FORGOT PASSWORD HANDLERS ==========
+  // ========== FORGOT PASSWORD HANDLER ==========
   const handleForgotPassword = async () => {
     if (!forgotPhone) {
       showMessage('Please enter your phone number', 'error');
@@ -182,56 +178,6 @@ function App() {
       }
     } catch (error) {
       showMessage(error.response?.data?.error || 'Failed to send request', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ========== CHECK URL FOR RESET TOKEN ==========
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-      setResetToken(token);
-      setShowResetPassword(true);
-      setShowLogin(false);
-    }
-  }, []);
-
-  const handleResetPassword = async () => {
-    if (!newPassword) {
-      showMessage('Please enter new password', 'error');
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      showMessage('Passwords do not match', 'error');
-      return;
-    }
-    if (newPassword.length < 4) {
-      showMessage('Password must be at least 4 characters', 'error');
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const response = await axios.post(`${API_URL}/reset-password-with-token/`, {
-        token: resetToken,
-        new_password: newPassword,
-        confirm_password: confirmNewPassword
-      });
-      
-      if (response.data.success) {
-        showMessage('Password reset successfully! Please login.', 'success');
-        setShowResetPassword(false);
-        setResetToken(null);
-        setNewPassword('');
-        setConfirmNewPassword('');
-        setShowLogin(true);
-      } else {
-        showMessage(response.data.error || 'Failed to reset password', 'error');
-      }
-    } catch (error) {
-      showMessage(error.response?.data?.error || 'Failed to reset password', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -565,7 +511,11 @@ function App() {
         setCurrentPage('dashboard');
       }
     } catch (error) {
-      if (error.response?.status === 404) {
+      // ========== CHECK FOR MAINTENANCE MODE ==========
+      if (error.response?.status === 503 && error.response?.data?.maintenance) {
+        setIsMaintenance(true);
+        setMaintenanceMessage(error.response?.data?.error || 'System under maintenance. Please check back shortly.');
+      } else if (error.response?.status === 404) {
         showMessage('Account not found. Please sign up first.', 'error');
       } else if (error.response?.status === 401) {
         showMessage('Invalid password. Please try again.', 'error');
@@ -673,16 +623,19 @@ function App() {
   };
 
   // ========== MAINTENANCE MODE SCREEN ==========
-  if (isMaintenance && !isLoggedIn) {
+  if (isMaintenance) {
     return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-icon">🔧</div>
-          <h1 className="auth-title">Maintenance Mode</h1>
+      <div className="maintenance-container">
+        <div className="maintenance-card">
+          <div className="maintenance-icon">🔧</div>
+          <h1 className="maintenance-title">Maintenance Mode</h1>
           <div className="maintenance-message">
-            <p>{maintenanceMessage}</p>
+            <p>{maintenanceMessage || "We are currently performing system maintenance. Please check back shortly. We apologize for the inconvenience."}</p>
           </div>
-          <button className="auth-btn" onClick={() => window.location.reload()}>
+          <button 
+            className="maintenance-refresh-btn" 
+            onClick={() => window.location.reload()}
+          >
             Refresh
           </button>
         </div>
@@ -690,43 +643,39 @@ function App() {
     );
   }
 
-  // ========== RESET PASSWORD PAGE (from link) ==========
-  if (showResetPassword) {
+  // ========== FORGOT PASSWORD MODAL ==========
+  if (showForgotPassword) {
     return (
       <div className="auth-container">
         <div className="auth-card">
           <div className="auth-icon">🔐</div>
-          <h1 className="auth-title">Reset Password</h1>
-          <p className="auth-subtitle">Enter your new password</p>
+          <h1 className="auth-title">Forgot Password</h1>
+          <p className="auth-subtitle">Enter your phone number. Admin will send you a reset link.</p>
           
           <input
-            type="password"
-            placeholder="New Password"
+            type="tel"
+            placeholder="Phone Number"
             className="auth-input"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
+            value={forgotPhone}
+            onChange={(e) => setForgotPhone(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleForgotPassword()}
           />
           
-          <input
-            type="password"
-            placeholder="Confirm New Password"
-            className="auth-input"
-            value={confirmNewPassword}
-            onChange={(e) => setConfirmNewPassword(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleResetPassword()}
-          />
-          
-          <button className="auth-btn login-btn" onClick={handleResetPassword} disabled={isLoading}>
-            {isLoading ? 'Please wait...' : 'Reset Password'}
+          <button className="auth-btn login-btn" onClick={handleForgotPassword} disabled={isLoading}>
+            {isLoading ? 'Sending...' : 'Request Reset Link'}
           </button>
           
           <p className="auth-switch">
             Remember your password?{' '}
             <button onClick={() => {
-              setShowResetPassword(false);
+              setShowForgotPassword(false);
               setShowLogin(true);
-            }}>Login</button>
+            }}>Back to Login</button>
           </p>
+          
+          <div className="forgot-info">
+            <small>⚠️ Admin will review your request and send a reset link via WhatsApp/SMS.</small>
+          </div>
           
           {message && <div className={`auth-message ${messageType}`}>{message}</div>}
         </div>
@@ -810,46 +759,6 @@ function App() {
     );
   }
 
-  // ========== FORGOT PASSWORD MODAL ==========
-  if (showForgotPassword) {
-    return (
-      <div className="auth-container">
-        <div className="auth-card">
-          <div className="auth-icon">🔐</div>
-          <h1 className="auth-title">Forgot Password</h1>
-          <p className="auth-subtitle">Enter your phone number. Admin will send you a reset link.</p>
-          
-          <input
-            type="tel"
-            placeholder="Phone Number"
-            className="auth-input"
-            value={forgotPhone}
-            onChange={(e) => setForgotPhone(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleForgotPassword()}
-          />
-          
-          <button className="auth-btn login-btn" onClick={handleForgotPassword} disabled={isLoading}>
-            {isLoading ? 'Sending...' : 'Request Reset Link'}
-          </button>
-          
-          <p className="auth-switch">
-            Remember your password?{' '}
-            <button onClick={() => {
-              setShowForgotPassword(false);
-              setShowLogin(true);
-            }}>Back to Login</button>
-          </p>
-          
-          <div className="forgot-info">
-            <small>⚠️ Admin will review your request and send a reset link via WhatsApp/SMS.</small>
-          </div>
-          
-          {message && <div className={`auth-message ${messageType}`}>{message}</div>}
-        </div>
-      </div>
-    );
-  }
-
   // ========== DASHBOARD PAGE ==========
   return (
     <div className="app-container">
@@ -905,7 +814,7 @@ function App() {
           </>
         )}
 
-        {/* Products Page */}
+        {/* Products Page - Same as before */}
         {currentPage === 'products' && (
           <>
             <div className="section-header">

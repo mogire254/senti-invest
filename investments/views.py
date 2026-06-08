@@ -138,7 +138,7 @@ def signup(request):
         print(f"   🆔 User ID: {user.id}")
         print(f"   📅 Registered: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("="*60)
-        print(f"🔗 Approve here: http://localhost:8000/admin/investments/userprofile/")
+        print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/userprofile/")
         print("="*60 + "\n")
         
         return Response({
@@ -155,10 +155,11 @@ def signup(request):
 def login_view(request):
     """User login - checks if user exists, approved, and account status"""
     try:
-        # Maintenance check
+        # ========== MAINTENANCE MODE CHECK - MUST BE FIRST ==========
         maint_msg = check_maintenance()
         if maint_msg:
             return Response({
+                'success': False,
                 'error': maint_msg,
                 'maintenance': True,
                 'code': 'MAINTENANCE_MODE'
@@ -245,7 +246,7 @@ def login_view(request):
         print(f"❌ Login error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== FORGOT PASSWORD - REQUEST RESET (ADMIN GENERATES LINK) ==========
+# ========== FORGOT PASSWORD - REQUEST RESET (USER REQUESTS) ==========
 @api_view(['POST'])
 def forgot_password_request(request):
     """User requests password reset - admin notified to generate link"""
@@ -270,18 +271,22 @@ def forgot_password_request(request):
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=404)
         
+        # Generate reset token
         reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
         
+        # Store reset token
         reset_request = PasswordReset.objects.create(
             user=user,
             code=reset_token,
             is_used=False
         )
         
+        # Update profile
         profile.requires_password_reset = True
         profile.reset_token = reset_token
         profile.save()
         
+        # Generate reset link
         reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
         
         print("\n" + "="*60)
@@ -344,7 +349,7 @@ def check_reset_token(request):
 # ========== RESET PASSWORD WITH TOKEN ==========
 @api_view(['POST'])
 def reset_password_with_token(request):
-    """Reset password using token from link"""
+    """Reset password using token from link (no code needed)"""
     try:
         token = request.data.get('token')
         new_password = request.data.get('new_password')
@@ -373,12 +378,16 @@ def reset_password_with_token(request):
             return Response({'error': 'Reset link has expired (24 hours). Please request a new one.'}, status=400)
         
         user = reset.user
+        
+        # Set new password
         user.set_password(new_password)
         user.save()
         
+        # Mark token as used
         reset.is_used = True
         reset.save()
         
+        # Clear reset flags from profile
         try:
             profile = UserProfile.objects.get(user=user)
             profile.requires_password_reset = False
@@ -441,108 +450,61 @@ def admin_generate_reset_link(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
-# ========== PASSWORD RESET FUNCTIONS (OLD - KEPT FOR COMPATIBILITY) ==========
-@api_view(['POST'])
-def request_password_reset(request):
-    """Send verification code to user's phone number"""
+# ========== PASSWORD RESET PAGE (NO CODE - ADMIN INITIATED) ==========
+@csrf_protect
+def password_reset_page(request, token):
+    """Page where user can set new password using admin-provided token"""
+    
     try:
-        phone = request.data.get('phone_number')
+        reset_request = PasswordReset.objects.get(code=token, is_used=False)
         
-        print(f"🔐 Password reset requested for: {phone}")
+        if reset_request.created_at < timezone.now() - timedelta(hours=24):
+            return render(request, 'password_reset.html', {
+                'error': 'This reset link has expired (24 hours). Please contact admin for a new one.'
+            })
         
-        if not phone:
-            return Response({'error': 'Phone number required'}, status=400)
+        user = reset_request.user
         
-        try:
-            user = User.objects.get(username=phone)
-            profile = UserProfile.objects.get(user=user)
-        except User.DoesNotExist:
-            return Response({'error': 'No account found with this phone number'}, status=404)
-        except UserProfile.DoesNotExist:
-            return Response({'error': 'Profile not found'}, status=404)
-        
-        reset_code = f"{random.randint(100000, 999999)}"
-        
-        reset_request = PasswordReset.objects.create(
-            user=user,
-            code=reset_code,
-            is_used=False
-        )
-        
-        old_codes = PasswordReset.objects.filter(user=user, is_used=False).exclude(id=reset_request.id)
-        for old in old_codes[:5]:
-            old.delete()
-        
-        print(f"📱 VERIFICATION CODE for {phone}: {reset_code}")
-        
-        return Response({
-            'success': True,
-            'message': 'Verification code sent to your phone number',
-            'reset_id': reset_request.id
+    except PasswordReset.DoesNotExist:
+        return render(request, 'password_reset.html', {
+            'error': 'Invalid or already used reset link. Please contact admin.'
         })
+    
+    if request.method == 'POST':
+        new_password = request.POST.get('new_password')
+        confirm_password = request.POST.get('confirm_password')
         
-    except Exception as e:
-        print(f"❌ Password reset error: {str(e)}")
-        return Response({'error': str(e)}, status=500)
-
-@api_view(['POST'])
-def verify_reset_code(request):
-    """Verify the code and allow password reset"""
-    try:
-        phone = request.data.get('phone_number')
-        code = request.data.get('code')
-        new_password = request.data.get('new_password')
-        
-        print(f"🔐 Verifying reset code for: {phone}")
-        
-        if not phone or not code:
-            return Response({'error': 'Phone number and code required'}, status=400)
-        
-        try:
-            user = User.objects.get(username=phone)
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=404)
-        
-        try:
-            reset = PasswordReset.objects.get(
-                user=user,
-                code=code,
-                is_used=False
-            )
-        except PasswordReset.DoesNotExist:
-            return Response({'error': 'Invalid or expired verification code'}, status=400)
-        
-        if not reset.is_valid():
-            reset.is_used = True
-            reset.save()
-            return Response({'error': 'Verification code has expired. Please request a new one.'}, status=400)
-        
-        if new_password:
-            if len(new_password) < 4:
-                return Response({'error': 'Password must be at least 4 characters'}, status=400)
-            
-            user.set_password(new_password)
-            user.save()
-            
-            reset.is_used = True
-            reset.save()
-            
-            print(f"✅ Password reset successful for: {phone}")
-            
-            return Response({
-                'success': True,
-                'message': 'Password has been reset successfully. Please login with your new password.'
-            })
-        else:
-            return Response({
-                'success': True,
-                'verified': True,
-                'message': 'Code verified. You can now set a new password.'
+        if not new_password or len(new_password) < 4:
+            return render(request, 'password_reset.html', {
+                'token': token,
+                'error': 'Password must be at least 4 characters long.'
             })
         
-    except Exception as e:
-        print(f"❌ Code verification error: {str(e)}")
-        return Response({'error': str(e)}, status=500)
+        if new_password != confirm_password:
+            return render(request, 'password_reset.html', {
+                'token': token,
+                'error': 'Passwords do not match.'
+            })
+        
+        user.set_password(new_password)
+        user.save()
+        
+        reset_request.is_used = True
+        reset_request.save()
+        
+        try:
+            profile = UserProfile.objects.get(user=user)
+            profile.requires_password_reset = False
+            profile.reset_token = None
+            profile.save()
+        except UserProfile.DoesNotExist:
+            pass
+        
+        return render(request, 'password_reset.html', {
+            'success': 'Password has been reset successfully! You will be redirected to login page.'
+        })
+    
+    return render(request, 'password_reset.html', {'token': token})
 
 # ========== DEPOSIT FUNCTIONS ==========
 @api_view(['POST'])
@@ -624,7 +586,7 @@ def request_mpesa_deposit(request):
         print(f"   📱 Phone: {phone_number}")
         print(f"   🆔 Transaction ID: {transaction_id}")
         print("="*60)
-        print(f"🔗 Approve here: http://localhost:8000/admin/investments/deposit/")
+        print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/deposit/")
         print("="*60 + "\n")
         
         return Response({
@@ -808,7 +770,7 @@ def request_unban(request):
         print(f"Phone: {profile.phone_number}")
         print(f"Reason: {reason}")
         print("="*60)
-        print(f"🔗 Approve here: http://localhost:8000/admin/investments/userprofile/")
+        print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/userprofile/")
         print("="*60 + "\n")
         
         return Response({
@@ -1053,7 +1015,7 @@ def request_withdrawal(request):
     print(f"   🆔 Withdrawal ID: {withdrawal.id}")
     print(f"   💰 New Balance: KES {wallet.balance:,.0f}")
     print("="*60)
-    print(f"🔗 Approve here: http://localhost:8000/admin/investments/withdrawal/")
+    print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/withdrawal/")
     print("="*60 + "\n")
     
     return Response({
@@ -1732,59 +1694,3 @@ def upgrade_investment(request):
     except Exception as e:
         print(f"Upgrade error: {str(e)}")
         return Response({'error': str(e)}, status=500)
-
-# ========== PASSWORD RESET PAGE (NO CODE - ADMIN INITIATED) ==========
-@csrf_protect
-def password_reset_page(request, token):
-    """Page where user can set new password using admin-provided token (no code needed)"""
-    
-    try:
-        reset_request = PasswordReset.objects.get(code=token, is_used=False)
-        
-        if reset_request.created_at < timezone.now() - timedelta(hours=24):
-            return render(request, 'password_reset.html', {
-                'error': 'This reset link has expired (24 hours). Please contact admin for a new one.'
-            })
-        
-        user = reset_request.user
-        
-    except PasswordReset.DoesNotExist:
-        return render(request, 'password_reset.html', {
-            'error': 'Invalid or already used reset link. Please contact admin.'
-        })
-    
-    if request.method == 'POST':
-        new_password = request.POST.get('new_password')
-        confirm_password = request.POST.get('confirm_password')
-        
-        if not new_password or len(new_password) < 4:
-            return render(request, 'password_reset.html', {
-                'token': token,
-                'error': 'Password must be at least 4 characters long.'
-            })
-        
-        if new_password != confirm_password:
-            return render(request, 'password_reset.html', {
-                'token': token,
-                'error': 'Passwords do not match.'
-            })
-        
-        user.set_password(new_password)
-        user.save()
-        
-        reset_request.is_used = True
-        reset_request.save()
-        
-        try:
-            profile = UserProfile.objects.get(user=user)
-            profile.requires_password_reset = False
-            profile.reset_token = None
-            profile.save()
-        except UserProfile.DoesNotExist:
-            pass
-        
-        return render(request, 'password_reset.html', {
-            'success': 'Password has been reset successfully! You will be redirected to login page.'
-        })
-    
-    return render(request, 'password_reset.html', {'token': token})

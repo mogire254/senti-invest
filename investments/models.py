@@ -244,6 +244,8 @@ class FraudLog(models.Model):
         ('account_unbanned', 'Account Unbanned'),
         ('investment_cancelled', 'Investment Cancelled'),
         ('balance_adjusted', 'Balance Adjusted'),
+        ('withdrawal_approved', 'Withdrawal Approved'),
+        ('withdrawal_rejected', 'Withdrawal Rejected'),
     ]
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fraud_logs')
@@ -257,9 +259,9 @@ class FraudLog(models.Model):
         return f"{self.user.username} - {self.action} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
 class PasswordReset(models.Model):
-    """Track password reset codes"""
+    """Track password reset codes/tokens"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_resets')
-    code = models.CharField(max_length=100)  # Increased length for UUID tokens
+    code = models.CharField(max_length=200)  # UUID tokens for admin-generated links
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
     
@@ -268,12 +270,11 @@ class PasswordReset(models.Model):
         return not self.is_used and (datetime.now() - self.created_at) < timedelta(hours=24)
     
     def __str__(self):
-        return f"{self.user.username} - {self.code[:20]}... ({'Used' if self.is_used else 'Active'})"
+        return f"{self.user.username} - {self.code[:30]}... ({'Used' if self.is_used else 'Active'})"
 
-
-# ========== NEW: MAINTENANCE MODE MODEL ==========
+# ========== MAINTENANCE MODE MODEL ==========
 class MaintenanceMode(models.Model):
-    """Control system maintenance mode"""
+    """Control system maintenance mode - when enabled, users cannot login"""
     is_enabled = models.BooleanField(default=False)
     message = models.TextField(default="We are currently performing system maintenance. Please check back shortly. We apologize for the inconvenience.")
     updated_at = models.DateTimeField(auto_now=True)

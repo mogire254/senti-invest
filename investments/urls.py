@@ -12,15 +12,11 @@ urlpatterns = [
     path('api/signup/', views.signup, name='signup'),
     path('api/login/', views.login_view, name='login'),
     
-    # Forgot Password - NEW (Admin generates link, no code needed)
+    # Forgot Password - TWO WAYS (User requests, Admin generates)
     path('api/forgot-password-request/', views.forgot_password_request, name='forgot-password-request'),
     path('api/check-reset-token/', views.check_reset_token, name='check-reset-token'),
     path('api/reset-password-with-token/', views.reset_password_with_token, name='reset-password-with-token'),
     path('api/admin-generate-reset-link/', views.admin_generate_reset_link, name='admin-generate-reset-link'),
-    
-    # Password Reset (Old - kept for compatibility)
-    path('api/request-password-reset/', views.request_password_reset, name='request-password-reset'),
-    path('api/verify-reset-code/', views.verify_reset_code, name='verify-reset-code'),
     
     # Password Reset Page (Admin initiated - no code)
     path('reset-password/<str:token>/', views.password_reset_page, name='password-reset-page'),
