@@ -998,32 +998,37 @@ function App() {
           <div className="waiting-icon">⏳</div>
           <div className="waiting-text">
             <strong>WAITING FOR ADMIN APPROVAL</strong><br />
-            Your request has been sent. Admin will approve shortly.
+            Your request has been sent. Admin will approve shortly.<br />
+            After approval, check your phone to complete the M-PESA transaction.
           </div>
         </div>
       )}
       
-      {/* M-Pesa Message Pasting Section */}
-      <div className="mpesa-message-section">
-        <div className="form-group">
-          <label>M-Pesa Confirmation Message *</label>
-          <textarea 
-            placeholder="After admin approval, paste your M-Pesa confirmation message here..." 
-            className="auth-input" 
-            rows="3" 
-            value={mpesaMessage} 
-            onChange={(e) => setMpesaMessage(e.target.value)} 
-            style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
-          />
-        </div>
-        <button 
-          className="btn-secondary" 
-          onClick={processManualPayment} 
-          disabled={isLoading}
-        >
-          {isLoading ? 'Processing...' : 'Verify Payment'}
-        </button>
-      </div>
+      {/* M-Pesa Message Section - Only show if NOT loading */}
+      {!isLoading && (
+        <>
+          <div className="mpesa-message-section">
+            <div className="form-group">
+              <label>M-Pesa Confirmation Message *</label>
+              <textarea 
+                placeholder="After admin approval, paste your M-Pesa confirmation message here..." 
+                className="auth-input" 
+                rows="3" 
+                value={mpesaMessage} 
+                onChange={(e) => setMpesaMessage(e.target.value)} 
+                style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
+              />
+            </div>
+            <button 
+              className="btn-secondary" 
+              onClick={processManualPayment} 
+              disabled={isLoading}
+            >
+              {isLoading ? 'Processing...' : 'Verify Payment'}
+            </button>
+          </div>
+        </>
+      )}
       
       <div className="deposit-notes-compact">
         <span>❌ Fake payments = account ban.</span>
