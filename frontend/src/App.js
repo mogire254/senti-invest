@@ -943,99 +943,58 @@ function App() {
   </>
 )}
 
-       {/* Deposit Page */}
-{currentPage === 'deposit' && (
-  <div className="deposit-container">
-    <div className="transaction-card">
-      <h2>Deposit Funds</h2>
-      
-      {/* IMPORTANT NOTICE - ADMIN CONTACT */}
-      <div className="admin-contact-notice">
-        <div className="admin-contact-icon">📞</div>
-        <div className="admin-contact-content">
-          <strong>⚠️ YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong><br />
-          <strong>WhatsApp:</strong> 0142891121<br />
-          <strong>Telegram:</strong> 0142891121
-        </div>
-      </div>
-      
-      {/* Deposit Form */}
-      <div className="deposit-form">
-        <div className="form-group">
-          <label>Amount (KES) *</label>
-          <input 
-            type="number" 
-            placeholder="Enter amount (min KES 100)" 
-            className="auth-input" 
-            value={depositAmount} 
-            onChange={(e) => setDepositAmount(e.target.value)} 
-          />
-        </div>
-        
-        <div className="form-group">
-          <label>Your M-Pesa Phone Number *</label>
-          <input 
-            type="tel" 
-            placeholder="e.g., 0712345678" 
-            className="auth-input" 
-            value={mpesaPhone} 
-            onChange={(e) => setMpesaPhone(e.target.value)} 
-          />
-        </div>
-        
-        <button 
-          className="btn-primary" 
-          onClick={processManualPayment} 
-          disabled={isLoading}
-        >
-          {isLoading ? 'Processing...' : 'Submit Deposit Request'}
-        </button>
-      </div>
-      
-      {/* Waiting for approval message - shown after submit */}
-      {isLoading && (
-        <div className="waiting-approval">
-          <div className="waiting-icon">⏳</div>
-          <div className="waiting-text">
-            <strong>WAITING FOR ADMIN APPROVAL</strong><br />
-            Your request has been sent. Admin will approve shortly.<br />
-            After approval, check your phone to complete the M-PESA transaction.
-          </div>
-        </div>
-      )}
-      
-      {/* M-Pesa Message Section - Only show if NOT loading */}
-      {!isLoading && (
-        <>
-          <div className="mpesa-message-section">
-            <div className="form-group">
-              <label>M-Pesa Confirmation Message *</label>
-              <textarea 
-                placeholder="After admin approval, paste your M-Pesa confirmation message here..." 
-                className="auth-input" 
-                rows="3" 
-                value={mpesaMessage} 
-                onChange={(e) => setMpesaMessage(e.target.value)} 
-                style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
-              />
+        {/* Deposit Page */}
+        {currentPage === 'deposit' && (
+          <div className="deposit-container">
+            <div className="transaction-card">
+              <h2>Deposit Funds</h2>
+              
+              <div className="safaricom-notice">
+                <div className="safaricom-notice-icon">⚠️</div>
+                <div className="safaricom-notice-content">
+                  <strong>Important Notice:</strong> Safaricom is currently fixing the M-PESA STK prompt issue. 
+                  The automatic payment prompt is temporarily unavailable. 
+                  Please use the <strong>Manual Payment method below</strong> to deposit funds.
+                  <br /><br />
+                  <em>Thank you for your patience and understanding.</em>
+                </div>
+              </div>
+              
+              <div className="mpesa-instructions-compact">
+                <div className="mpesa-header">
+                  <span className="mpesa-icon">📱</span>
+                  <span className="mpesa-title">Pay via M-PESA Till: <strong>9315062</strong></span>
+                </div>
+                <div className="mpesa-steps-compact">
+                  <div className="step-compact">1. Open M-PESA → Lipa na M-PESA → Buy Goods</div>
+                  <div className="step-compact">2. Enter Till Number: <strong>9315062</strong></div>
+                  <div className="step-compact">3. Enter Amount (min KES 100) → Enter PIN → Confirm</div>
+                  <div className="step-compact">4. Copy confirmation message & paste below</div>
+                </div>
+              </div>
+
+              <div className="deposit-form">
+                <div className="form-group">
+                  <label>Amount (KES) *</label>
+                  <input type="number" placeholder="Enter amount (min KES 100)" className="auth-input" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>Your M-Pesa Phone Number *</label>
+                  <input type="tel" placeholder="e.g., 0712345678" className="auth-input" value={mpesaPhone} onChange={(e) => setMpesaPhone(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label>M-Pesa Confirmation Message *</label>
+                  <textarea placeholder="Paste your M-Pesa confirmation message here..." className="auth-input" rows="3" value={mpesaMessage} onChange={(e) => setMpesaMessage(e.target.value)} style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} />
+                </div>
+                <button className="btn-primary" onClick={processManualPayment} disabled={isLoading}>{isLoading ? 'Processing...' : 'Submit Deposit'}</button>
+              </div>
+              
+              <div className="deposit-notes-compact">
+                <span>❌ Fake payments = account ban.</span>
+              </div>
             </div>
-            <button 
-              className="btn-secondary" 
-              onClick={processManualPayment} 
-              disabled={isLoading}
-            >
-              {isLoading ? 'Processing...' : 'Verify Payment'}
-            </button>
           </div>
-        </>
-      )}
-      
-      <div className="deposit-notes-compact">
-        <span>❌ Fake payments = account ban.</span>
-      </div>
-    </div>
-  </div>
-)}
+        )}
 
         {/* Withdraw Page */}
         {currentPage === 'withdraw' && (
