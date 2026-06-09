@@ -951,9 +951,9 @@ function App() {
       
       {/* IMPORTANT NOTICE - ADMIN CONTACT */}
       <div className="admin-contact-notice">
-        <div className="admin-contact-icon">📞</div>
+        <div className="admin-contact-icon">⚠️</div>
         <div className="admin-contact-content">
-          <strong>⚠️ YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
+          <strong>YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
           <div className="contact-numbers">
             <div className="contact-item">
               <span>📱 WhatsApp:</span>
@@ -1000,42 +1000,40 @@ function App() {
         </button>
       </div>
       
-      {/* Waiting for approval message - shown after submit */}
-      {isLoading && (
-        <div className="waiting-approval">
-          <div className="waiting-icon">⏳</div>
-          <div className="waiting-text">
-            <strong>WAITING FOR ADMIN APPROVAL</strong><br />
-            Your request has been sent. Admin will approve shortly.<br />
-            After approval, check your phone to complete the M-PESA transaction.
+      {/* M-Pesa Message Section - Show BEFORE submit */}
+      {!isLoading && (
+        <div className="mpesa-message-section">
+          <div className="form-group">
+            <label>M-Pesa Confirmation Message *</label>
+            <textarea 
+              placeholder="After admin approval, paste your M-Pesa confirmation message here..." 
+              className="auth-input" 
+              rows="3" 
+              value={mpesaMessage} 
+              onChange={(e) => setMpesaMessage(e.target.value)} 
+              style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
+            />
           </div>
+          <button 
+            className="btn-secondary" 
+            onClick={processManualPayment} 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Processing...' : 'Verify Payment'}
+          </button>
         </div>
       )}
       
-      {/* M-Pesa Message Section - Only show if NOT loading */}
-      {!isLoading && (
-        <>
-          <div className="mpesa-message-section">
-            <div className="form-group">
-              <label>M-Pesa Confirmation Message *</label>
-              <textarea 
-                placeholder="After admin approval, paste your M-Pesa confirmation message here..." 
-                className="auth-input" 
-                rows="3" 
-                value={mpesaMessage} 
-                onChange={(e) => setMpesaMessage(e.target.value)} 
-                style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
-              />
-            </div>
-            <button 
-              className="btn-secondary" 
-              onClick={processManualPayment} 
-              disabled={isLoading}
-            >
-              {isLoading ? 'Processing...' : 'Verify Payment'}
-            </button>
+      {/* WAITING FOR APPROVAL - Green popout message shown AFTER submit */}
+      {isLoading && (
+        <div className="waiting-approval-green">
+          <div className="waiting-icon-green">✅</div>
+          <div className="waiting-text-green">
+            <strong>WAITING FOR ADMIN APPROVAL</strong><br />
+            Your request has been sent.<br />
+            Admin will approve shortly.
           </div>
-        </>
+        </div>
       )}
       
       <div className="deposit-notes-compact">
