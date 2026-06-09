@@ -876,43 +876,72 @@ function App() {
 
         {/* My Investments Page */}
         {currentPage === 'investments' && (
-          <>
-            <div className="section-header"><h1>My Investments</h1><p>Track your active investments</p></div>
-            <div className="daily-summary"><div className="daily-card"><p>Total Daily Earnings</p><h2>{formatCurrency(dailyEarnings)}</h2><small>Earned daily from all investments</small></div></div>
-            {isLoading ? (
-              <div className="empty-state"><p>Loading investments...</p></div>
-            ) : activeInvestments.length === 0 ? (
-              <div className="empty-state">
-                <p>No active investments yet.</p>
-                <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
+  <>
+    <div className="section-header">
+      <h1>My Investments</h1>
+      <p>Track your active investments</p>
+    </div>
+    
+    {/* Calculate accumulated daily earnings based on first investment date */}
+    {(() => {
+      const calculateAccumulatedEarnings = () => {
+        if (activeInvestments.length === 0) return 0;
+        const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
+        const today = new Date();
+        const daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
+        return dailyEarnings * (daysSinceFirst + 1);
+      };
+      const accumulatedEarnings = calculateAccumulatedEarnings();
+      
+      return (
+        <div className="investments-stats-row">
+          <div className="investments-stat-card daily">
+            <p className="stat-label">Total Daily Earnings</p>
+            <h2>{formatCurrency(dailyEarnings)}</h2>
+            <small>You earn this EVERY DAY</small>
+          </div>
+          <div className="investments-stat-card accumulated">
+            <p className="stat-label">Accumulated Daily Earnings</p>
+            <h2>{formatCurrency(accumulatedEarnings)}</h2>
+            <small>Running total (35 + 35 + 35...)</small>
+          </div>
+        </div>
+      );
+    })()}
+    
+    {isLoading ? (
+      <div className="empty-state"><p>Loading investments...</p></div>
+    ) : activeInvestments.length === 0 ? (
+      <div className="empty-state">
+        <p>No active investments yet.</p>
+        <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
+      </div>
+    ) : (
+      <div className="investments-grid">
+        {activeInvestments.map(inv => (
+          <div key={inv.id} className="investment-card-square">
+            <div className="investment-header">
+              <div>
+                <h3>{inv.product_name}</h3>
+                <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
               </div>
-            ) : (
-              <div className="investments-list-ultra">
-                {activeInvestments.map(inv => (
-                  <div key={inv.id} className="investment-card-ultra">
-                    <div className="investment-info-ultra">
-                      <span className="investment-name-ultra">{inv.product_name}</span>
-                      <span className="investment-level-ultra" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
-                      <span className="investment-amount-ultra">{formatCurrency(inv.amount)}</span>
-                      <div className="investment-daily-ultra">
-                        <span className="investment-daily-label-ultra">Daily:</span>
-                        <span className="investment-daily-value-ultra">{formatCurrency(inv.daily_earnings)}</span>
-                      </div>
-                    </div>
-                    {inv.product_level !== 'vip' && (
-                      <button 
-                        className="upgrade-btn-ultra" 
-                        onClick={() => openUpgradeModal(inv)}
-                      >
-                        ⬆️ Upgrade
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div className="investment-amount">{formatCurrency(inv.amount)}</div>
+            </div>
+            <div className="investment-stats-square">
+              <div className="stat-item">
+                <p className="stat-label">Daily Earnings</p>
+                <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
               </div>
+            </div>
+            {inv.product_level !== 'vip' && (
+              <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
             )}
-          </>
-        )}
+          </div>
+        ))}
+      </div>
+    )}
+  </>
+)}
 
         {/* Deposit Page */}
         {currentPage === 'deposit' && (
