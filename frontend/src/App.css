@@ -2302,29 +2302,75 @@ tr.status-rejected td {
     font-size: 24px;
   }
 }
-/* Admin Contact Notice */
+/* Admin Contact Notice - Premium Styling */
 .admin-contact-notice {
-  background: linear-gradient(135deg, #1e3a5f 0%, #0f2b44 100%);
-  border-left: 4px solid #f59e0b;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 24px;
   text-align: center;
   color: white;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .admin-contact-icon {
-  font-size: 28px;
-  margin-bottom: 8px;
+  font-size: 48px;
+  margin-bottom: 12px;
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: 50%;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 15px auto;
 }
 
 .admin-contact-content {
-  font-size: 14px;
-  line-height: 1.6;
+  font-size: 15px;
+  line-height: 1.8;
 }
 
 .admin-contact-content strong {
-  color: #f59e0b;
+  color: #fbbf24;
+  font-size: 18px;
+  display: block;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+/* Contact numbers styling */
+.contact-numbers {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.contact-item {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8px 16px;
+  border-radius: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.contact-item span:first-child {
+  font-weight: bold;
+  color: #fbbf24;
+}
+
+.contact-item span:last-child {
+  font-family: monospace;
+  font-size: 16px;
+  letter-spacing: 1px;
 }
 
 /* Waiting for approval message */

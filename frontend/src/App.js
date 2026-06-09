@@ -953,9 +953,17 @@ function App() {
       <div className="admin-contact-notice">
         <div className="admin-contact-icon">📞</div>
         <div className="admin-contact-content">
-          <strong>⚠️ YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong><br />
-          <strong>WhatsApp:</strong> 0142891121<br />
-          <strong>Telegram:</strong> 0142891121
+          <strong>⚠️ YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
+          <div className="contact-numbers">
+            <div className="contact-item">
+              <span>📱 WhatsApp:</span>
+              <span>0142891121</span>
+            </div>
+            <div className="contact-item">
+              <span>📨 Telegram:</span>
+              <span>0142891121</span>
+            </div>
+          </div>
         </div>
       </div>
       
