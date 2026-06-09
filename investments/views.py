@@ -1256,16 +1256,25 @@ def get_bonus_history(request):
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-
-# ========== DAILY EARNINGS ==========
+        
+# ========== FIXED DAILY EARNINGS - USES NAIROBI TIMEZONE ==========
 @api_view(['GET', 'POST'])
 def process_daily_earnings_api(request):
-    """API endpoint to trigger daily earnings - SKIPS frozen/banned users"""
+    """API endpoint to trigger daily earnings - USES NAIROBI TIMEZONE for ALL users"""
     print("\n" + "="*60)
     print(f"🔄 DAILY EARNINGS PROCESSING STARTED")
     print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
     
+    # IMPORTANT: Use Africa/Nairobi timezone for correct date
+    from django.utils import timezone
+    now = timezone.localtime(timezone.now())
+    today = now.date()
+    
+    print(f"📅 Nairobi date: {today}")
+    print(f"⏰ Nairobi time: {now.strftime('%H:%M:%S')}")
+    
+    # Only get active investments from users who are NOT frozen or banned
     active_investments = UserInvestment.objects.filter(
         status='active', 
         expiry_date__gt=timezone.now(),
@@ -1281,25 +1290,23 @@ def process_daily_earnings_api(request):
     print(f"📊 Found {active_investments.count()} active investments from active users")
     
     for investment in active_investments:
-        today = timezone.now().date()
+        # Check if already earned today in NAIROBI timezone
+        already_earned_today = False
+        if investment.last_earning_date:
+            # Convert last_earning_date to Nairobi timezone for comparison
+            last_earning_local = timezone.localtime(investment.last_earning_date)
+            if last_earning_local.date() == today:
+                already_earned_today = True
         
-        try:
-            profile = UserProfile.objects.get(user=investment.user)
-            if profile.account_status != 'active':
-                print(f"⏭️ Skipping {investment.user.username} - Account status: {profile.account_status}")
-                skipped_frozen += 1
-                continue
-        except:
-            pass
-        
-        if investment.last_earning_date and investment.last_earning_date.date() == today:
+        if already_earned_today:
+            print(f"⏭️ Skipping {investment.user.username} - Already earned today in Nairobi time")
             continue
         
         daily_earnings = investment.product.daily_earnings_amount if investment.product.daily_earnings_amount else Decimal('0')
         
         if daily_earnings > 0:
             investment.total_earned += daily_earnings
-            investment.last_earning_date = timezone.now()
+            investment.last_earning_date = timezone.now()  # Store in UTC
             investment.save()
             
             try:
@@ -1332,6 +1339,7 @@ def process_daily_earnings_api(request):
     print("\n" + "="*60)
     print("📊 DAILY EARNINGS SUMMARY")
     print("="*60)
+    print(f"   📅 Date (Nairobi): {today}")
     print(f"   ✅ Investments processed: {processed}")
     print(f"   👥 Users affected: {len(users_affected)}")
     print(f"   💰 Total earnings distributed: KES {total_earnings:,.2f}")
@@ -1344,6 +1352,7 @@ def process_daily_earnings_api(request):
         'total_earnings': float(total_earnings),
         'users_affected': len(users_affected),
         'skipped_frozen': skipped_frozen,
+        'date': str(today),
         'message': f'Processed {processed} investments, distributed KES {total_earnings:,.0f} to {len(users_affected)} users'
     })
 
