@@ -722,6 +722,278 @@ def verify_manual_payment(request):
         print(f"❌ Manual payment error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
+# ========== SUBMIT DEPOSIT REQUEST (User submits for admin approval) ==========
+@api_view(['POST'])
+def submit_deposit_request(request):
+    """User submits a deposit request for admin approval - NO money added until admin approves"""
+    try:
+        # Maintenance check
+        maint_msg = check_maintenance()
+        if maint_msg:
+            return Response({
+                'error': maint_msg,
+                'maintenance': True,
+                'code': 'MAINTENANCE_MODE'
+            }, status=503)
+        
+        user_id = request.data.get('user_id')
+        amount = request.data.get('amount')
+        phone_number = request.data.get('phone_number', '')
+        mpesa_message = request.data.get('mpesa_message', '')
+        
+        print("\n" + "="*60)
+        print(f"📝 NEW DEPOSIT REQUEST (AWAITING ADMIN APPROVAL)")
+        print("="*60)
+        print(f"👤 User ID: {user_id}")
+        print(f"💵 Amount: KES {amount}")
+        print(f"📱 Phone: {phone_number}")
+        print(f"📝 Message: {mpesa_message[:100] if mpesa_message else 'No message'}...")
+        print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*60)
+        
+        if not user_id or not amount:
+            return Response({'error': 'User ID and amount required'}, status=400)
+        
+        amount = Decimal(str(amount))
+        
+        if amount < 100:
+            return Response({'error': f'Minimum deposit is KES 100'}, status=400)
+        
+        try:
+            user = User.objects.get(id=user_id)
+            profile = UserProfile.objects.get(user=user)
+            
+            if not profile.is_approved:
+                return Response({'error': 'Account not approved yet. Please wait for admin approval.'}, status=403)
+            
+            if profile.account_status in ['banned', 'frozen']:
+                return Response({'error': f'Your account is {profile.account_status}. Cannot process deposit.'}, status=403)
+                
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        except UserProfile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=404)
+        
+        # Generate unique transaction ID
+        transaction_id = str(uuid.uuid4())[:8].upper()
+        
+        # Create deposit with 'pending_approval' status - NO money added yet
+        deposit = Deposit.objects.create(
+            user=user,
+            amount=amount,
+            transaction_id=transaction_id,
+            phone_number=phone_number,
+            mpesa_message=mpesa_message,
+            verification_status='pending_approval',  # Waiting for admin approval
+            status='pending'
+        )
+        
+        print("\n" + "="*60)
+        print("⚠️ ADMIN ACTION REQUIRED - DEPOSIT REQUEST PENDING APPROVAL!")
+        print("="*60)
+        print(f"💰 Deposit Request:")
+        print(f"   👤 User: {user.username} ({profile.full_name or 'No name'})")
+        print(f"   💵 Amount: KES {amount:,.0f}")
+        print(f"   📱 Phone: {phone_number}")
+        print(f"   🆔 Transaction ID: {transaction_id}")
+        print("="*60)
+        print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/deposit/")
+        print("="*60 + "\n")
+        
+        return Response({
+            'success': True,
+            'message': f'✅ Deposit request of KES {amount:,.0f} submitted for admin approval. You will be notified once approved.',
+            'transaction_id': transaction_id,
+            'pending_approval': True
+        })
+        
+    except Exception as e:
+        print(f"❌ Submit deposit request error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== CHECK DEPOSIT STATUS (User checks if approved) ==========
+@api_view(['GET'])
+def check_deposit_status(request):
+    """User checks if their deposit has been approved by admin"""
+    try:
+        user_id = request.GET.get('user_id')
+        transaction_id = request.GET.get('transaction_id')
+        
+        if not user_id or not transaction_id:
+            return Response({'error': 'User ID and transaction ID required'}, status=400)
+        
+        try:
+            deposit = Deposit.objects.get(transaction_id=transaction_id, user_id=user_id)
+        except Deposit.DoesNotExist:
+            return Response({'error': 'Deposit not found'}, status=404)
+        
+        status_message = ''
+        if deposit.verification_status == 'approved':
+            status_message = '✅ Deposit approved! Money has been added to your wallet.'
+        elif deposit.verification_status == 'pending_approval':
+            status_message = '⏳ Deposit pending admin approval. Check back shortly.'
+        elif deposit.verification_status == 'rejected':
+            status_message = f'❌ Deposit rejected. Reason: {deposit.rejection_reason or "Contact admin for details."}'
+        
+        return Response({
+            'success': True,
+            'status': deposit.verification_status,
+            'amount': float(deposit.amount),
+            'message': status_message
+        })
+        
+    except Exception as e:
+        print(f"❌ Check deposit status error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== ADMIN APPROVE DEPOSIT (Admin approves, THEN money is added) ==========
+@api_view(['POST'])
+def admin_approve_deposit(request):
+    """Admin approves a deposit - ONLY THEN money is added to wallet"""
+    try:
+        # Admin authentication
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        deposit_id = request.data.get('deposit_id')
+        
+        if not deposit_id:
+            return Response({'error': 'Deposit ID required'}, status=400)
+        
+        try:
+            deposit = Deposit.objects.get(id=deposit_id)
+        except Deposit.DoesNotExist:
+            return Response({'error': 'Deposit not found'}, status=404)
+        
+        # Only process if pending approval
+        if deposit.verification_status != 'pending_approval':
+            return Response({'error': f'Deposit already {deposit.verification_status}. Cannot approve again.'}, status=400)
+        
+        # Add money to wallet ONLY when admin approves
+        wallet, created = Wallet.objects.get_or_create(user=deposit.user)
+        wallet.balance += deposit.amount
+        wallet.total_deposited += deposit.amount
+        wallet.save()
+        
+        # Update deposit status
+        deposit.verification_status = 'approved'
+        deposit.status = 'approved'
+        deposit.approved_at = timezone.now()
+        deposit.approved_by = request.data.get('approved_by', 'admin')
+        deposit.save()
+        
+        # Log the approval
+        FraudLog.objects.create(
+            user=deposit.user,
+            action='deposit_verified',
+            amount=deposit.amount,
+            reason=f'Deposit approved by admin. Transaction ID: {deposit.transaction_id}',
+            performed_by=request.data.get('approved_by', 'admin')
+        )
+        
+        print(f"✅ DEPOSIT APPROVED: {deposit.user.username} - KES {deposit.amount:,.0f} added to wallet")
+        
+        return Response({
+            'success': True,
+            'message': f'✅ Deposit of KES {deposit.amount:,.0f} approved and added to user balance.',
+            'new_balance': float(wallet.balance)
+        })
+        
+    except Exception as e:
+        print(f"❌ Admin approve deposit error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== ADMIN REJECT DEPOSIT (Admin rejects - NO money added) ==========
+@api_view(['POST'])
+def admin_reject_deposit(request):
+    """Admin rejects a deposit - NO money is added to wallet"""
+    try:
+        # Admin authentication
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        deposit_id = request.data.get('deposit_id')
+        reason = request.data.get('reason', 'No reason provided')
+        
+        if not deposit_id:
+            return Response({'error': 'Deposit ID required'}, status=400)
+        
+        try:
+            deposit = Deposit.objects.get(id=deposit_id)
+        except Deposit.DoesNotExist:
+            return Response({'error': 'Deposit not found'}, status=404)
+        
+        # Only process if pending approval
+        if deposit.verification_status != 'pending_approval':
+            return Response({'error': f'Deposit already {deposit.verification_status}. Cannot reject again.'}, status=400)
+        
+        # DO NOT add money to wallet
+        deposit.verification_status = 'rejected'
+        deposit.status = 'rejected'
+        deposit.rejection_reason = reason
+        deposit.save()
+        
+        # Log the rejection
+        FraudLog.objects.create(
+            user=deposit.user,
+            action='deposit_rejected',
+            amount=deposit.amount,
+            reason=f'Deposit rejected by admin: {reason}',
+            performed_by=request.data.get('rejected_by', 'admin')
+        )
+        
+        print(f"❌ DEPOSIT REJECTED: {deposit.user.username} - KES {deposit.amount:,.0f} (No money added)")
+        
+        return Response({
+            'success': True,
+            'message': f'❌ Deposit of KES {deposit.amount:,.0f} rejected. No money added to wallet.',
+            'reason': reason
+        })
+        
+    except Exception as e:
+        print(f"❌ Admin reject deposit error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== GET PENDING DEPOSITS FOR ADMIN ==========
+@api_view(['GET'])
+def admin_get_pending_deposits(request):
+    """Admin gets all pending deposit requests"""
+    try:
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        pending_deposits = Deposit.objects.filter(verification_status='pending_approval').order_by('-created_at')
+        
+        data = []
+        for deposit in pending_deposits:
+            data.append({
+                'id': deposit.id,
+                'user': deposit.user.username,
+                'user_phone': deposit.user.profile.phone_number if hasattr(deposit.user, 'profile') else '',
+                'amount': float(deposit.amount),
+                'transaction_id': deposit.transaction_id,
+                'phone_number': deposit.phone_number,
+                'mpesa_message': deposit.mpesa_message,
+                'created_at': deposit.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return Response({
+            'success': True,
+            'pending_deposits': data,
+            'count': len(data)
+        })
+        
+    except Exception as e:
+        print(f"❌ Get pending deposits error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
 # ========== ACCOUNT STATUS FUNCTIONS ==========
 @api_view(['GET'])
 def check_account_status(request):

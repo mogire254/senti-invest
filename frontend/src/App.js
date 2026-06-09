@@ -51,13 +51,13 @@ function App() {
   const [selectedUpgradeProduct, setSelectedUpgradeProduct] = useState(null);
   
   // ========== DEPOSIT STATE ==========
-const [depositAmount, setDepositAmount] = useState('');
-const [mpesaPhone, setMpesaPhone] = useState('');
-const [mpesaMessage, setMpesaMessage] = useState('');
-const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
-const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
-const [showWaitingMessage, setShowWaitingMessage] = useState(false);
-
+  const [depositAmount, setDepositAmount] = useState('');
+  const [mpesaPhone, setMpesaPhone] = useState('');
+  const [mpesaMessage, setMpesaMessage] = useState('');
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [showWaitingMessage, setShowWaitingMessage] = useState(false);
+  const [currentTransactionId, setCurrentTransactionId] = useState(null);
+  
   // ========== WITHDRAWAL STATE ==========
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [withdrawPhone, setWithdrawPhone] = useState('');
@@ -108,6 +108,37 @@ const [showWaitingMessage, setShowWaitingMessage] = useState(false);
       console.log("📢 Referral code from URL:", ref);
     }
   }, []);
+
+  // ========== POLL FOR DEPOSIT STATUS ==========
+  useEffect(() => {
+    let interval;
+    if (showWaitingMessage && currentTransactionId) {
+      interval = setInterval(async () => {
+        try {
+          const response = await axios.get(`${API_URL}/check-deposit-status/`, {
+            params: {
+              user_id: userId,
+              transaction_id: currentTransactionId
+            }
+          });
+          
+          if (response.data.status === 'approved') {
+            setShowWaitingMessage(false);
+            setCurrentTransactionId(null);
+            showMessage('✅ Deposit approved! Money has been added to your wallet.', 'success');
+            loadDashboardData(userId);
+          } else if (response.data.status === 'rejected') {
+            setShowWaitingMessage(false);
+            setCurrentTransactionId(null);
+            showMessage('❌ Deposit was rejected. Please contact admin for details.', 'error');
+          }
+        } catch (error) {
+          console.error('Failed to check deposit status:', error);
+        }
+      }, 10000); // Check every 10 seconds
+    }
+    return () => clearInterval(interval);
+  }, [showWaitingMessage, currentTransactionId, userId]);
 
   // ========== HELPER FUNCTIONS ==========
   const formatCurrency = (amount) => {
@@ -405,67 +436,48 @@ const [showWaitingMessage, setShowWaitingMessage] = useState(false);
     }
   };
 
-  // ========== SUBMIT DEPOSIT REQUEST (Admin Approval) ==========
-const submitDepositRequest = async () => {
-  const amount = parseFloat(depositAmount);
-  if (!amount || amount < 100) {
-    showMessage(`Minimum deposit is ${formatCurrency(100)}`, 'error');
-    return;
-  }
-  if (!mpesaPhone || mpesaPhone.length < 10) {
-    showMessage('Please enter a valid M-Pesa phone number', 'error');
-    return;
-  }
-  
-  setIsSubmittingRequest(true);
-  setShowWaitingMessage(true);
-  
-  try {
-    showMessage('Deposit request sent to admin! You will be notified when approved.', 'success');
-  } catch (error) {
-    showMessage('Failed to send request. Please try again.', 'error');
-    setShowWaitingMessage(false);
-  } finally {
-    setIsSubmittingRequest(false);
-  }
-};
-
-// ========== VERIFY MANUAL PAYMENT (After Admin Approval) ==========
-const verifyPayment = async () => {
-  const amount = parseFloat(depositAmount);
-  if (!amount || amount < 100) {
-    showMessage(`Minimum deposit is ${formatCurrency(100)}`, 'error');
-    return;
-  }
-  if (!mpesaMessage || mpesaMessage.length < 20) {
-    showMessage('Please paste your M-Pesa confirmation message', 'error');
-    return;
-  }
-  
-  setIsVerifyingPayment(true);
-  try {
-    const response = await axios.post(`${API_URL}/verify-manual-payment/`, {
-      user_id: userId,
-      amount: amount,
-      phone_number: mpesaPhone,
-      mpesa_message: mpesaMessage
-    });
-    if (response.data.success) {
-      showMessage(response.data.message, 'success');
-      setDepositAmount('');
-      setMpesaMessage('');
-      setMpesaPhone('');
-      setShowWaitingMessage(false);
-      loadDashboardData(userId);
-    } else {
-      showMessage(response.data.error || 'Verification failed', 'error');
+  // ========== SUBMIT DEPOSIT REQUEST (Admin Approval Required) ==========
+  const submitDepositRequest = async () => {
+    const amount = parseFloat(depositAmount);
+    if (!amount || amount < 100) {
+      showMessage(`Minimum deposit is ${formatCurrency(100)}`, 'error');
+      return;
     }
-  } catch (error) {
-    showMessage(error.response?.data?.error || 'Verification failed', 'error');
-  } finally {
-    setIsVerifyingPayment(false);
-  }
-};
+    if (!mpesaPhone || mpesaPhone.length < 10) {
+      showMessage('Please enter a valid M-Pesa phone number', 'error');
+      return;
+    }
+    if (!mpesaMessage || mpesaMessage.length < 20) {
+      showMessage('Please paste your M-Pesa confirmation message', 'error');
+      return;
+    }
+    
+    setIsSubmittingRequest(true);
+    
+    try {
+      const response = await axios.post(`${API_URL}/submit-deposit-request/`, {
+        user_id: userId,
+        amount: amount,
+        phone_number: mpesaPhone,
+        mpesa_message: mpesaMessage
+      });
+      
+      if (response.data.success) {
+        setCurrentTransactionId(response.data.transaction_id);
+        setShowWaitingMessage(true);
+        showMessage(response.data.message, 'success');
+        setDepositAmount('');
+        setMpesaPhone('');
+        setMpesaMessage('');
+      } else {
+        showMessage(response.data.error || 'Failed to submit request', 'error');
+      }
+    } catch (error) {
+      showMessage(error.response?.data?.error || 'Failed to submit request', 'error');
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
 
   // ========== SIGNUP ==========
   const handleSignup = async () => {
@@ -844,7 +856,7 @@ const verifyPayment = async () => {
           </>
         )}
 
-        {/* Products Page - Same as before */}
+        {/* Products Page */}
         {currentPage === 'products' && (
           <>
             <div className="section-header">
@@ -906,175 +918,168 @@ const verifyPayment = async () => {
 
         {/* My Investments Page */}
         {currentPage === 'investments' && (
-  <>
-    <div className="section-header">
-      <h1>My Investments</h1>
-      <p>Track your active investments</p>
-    </div>
-    
-    {/* Calculate accumulated daily earnings based on first investment date */}
-    {(() => {
-      const calculateAccumulatedEarnings = () => {
-        if (activeInvestments.length === 0) return 0;
-        const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
-        const today = new Date();
-        const daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
-        return dailyEarnings * (daysSinceFirst + 1);
-      };
-      const accumulatedEarnings = calculateAccumulatedEarnings();
-      
-      return (
-        <div className="investments-stats-row">
-          <div className="investments-stat-card daily">
-            <p className="stat-label">Total Daily Earnings</p>
-            <h2>{formatCurrency(dailyEarnings)}</h2>
-            <small>You earn this EVERY DAY</small>
-          </div>
-          <div className="investments-stat-card accumulated">
-            <p className="stat-label">Accumulated Daily Earnings</p>
-            <h2>{formatCurrency(accumulatedEarnings)}</h2>
-            <small>Running total (35 + 35 + 35...)</small>
-          </div>
-        </div>
-      );
-    })()}
-    
-    {isLoading ? (
-      <div className="empty-state"><p>Loading investments...</p></div>
-    ) : activeInvestments.length === 0 ? (
-      <div className="empty-state">
-        <p>No active investments yet.</p>
-        <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
-      </div>
-    ) : (
-      <div className="investments-grid">
-        {activeInvestments.map(inv => (
-          <div key={inv.id} className="investment-card-square">
-            <div className="investment-header">
-              <div>
-                <h3>{inv.product_name}</h3>
-                <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
-              </div>
-              <div className="investment-amount">{formatCurrency(inv.amount)}</div>
+          <>
+            <div className="section-header">
+              <h1>My Investments</h1>
+              <p>Track your active investments</p>
             </div>
-            <div className="investment-stats-square">
-              <div className="stat-item">
-                <p className="stat-label">Daily Earnings</p>
-                <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
+            
+            {(() => {
+              const calculateAccumulatedEarnings = () => {
+                if (activeInvestments.length === 0) return 0;
+                const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
+                const today = new Date();
+                const daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
+                return dailyEarnings * (daysSinceFirst + 1);
+              };
+              const accumulatedEarnings = calculateAccumulatedEarnings();
+              
+              return (
+                <div className="investments-stats-row">
+                  <div className="investments-stat-card daily">
+                    <p className="stat-label">Total Daily Earnings</p>
+                    <h2>{formatCurrency(dailyEarnings)}</h2>
+                    <small>You earn this EVERY DAY</small>
+                  </div>
+                  <div className="investments-stat-card accumulated">
+                    <p className="stat-label">Accumulated Daily Earnings</p>
+                    <h2>{formatCurrency(accumulatedEarnings)}</h2>
+                    <small>Running total (35 + 35 + 35...)</small>
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {isLoading ? (
+              <div className="empty-state"><p>Loading investments...</p></div>
+            ) : activeInvestments.length === 0 ? (
+              <div className="empty-state">
+                <p>No active investments yet.</p>
+                <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
               </div>
-            </div>
-            {inv.product_level !== 'vip' && (
-              <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
+            ) : (
+              <div className="investments-grid">
+                {activeInvestments.map(inv => (
+                  <div key={inv.id} className="investment-card-square">
+                    <div className="investment-header">
+                      <div>
+                        <h3>{inv.product_name}</h3>
+                        <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
+                      </div>
+                      <div className="investment-amount">{formatCurrency(inv.amount)}</div>
+                    </div>
+                    <div className="investment-stats-square">
+                      <div className="stat-item">
+                        <p className="stat-label">Daily Earnings</p>
+                        <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
+                      </div>
+                    </div>
+                    {inv.product_level !== 'vip' && (
+                      <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
-        ))}
-      </div>
-    )}
-  </>
-)}
+          </>
+        )}
 
-       {/* Deposit Page */}
-{currentPage === 'deposit' && (
-  <div className="deposit-container">
-    <div className="transaction-card">
-      <h2>Deposit Funds</h2>
-      
-      {/* IMPORTANT NOTICE - ADMIN CONTACT */}
-      <div className="admin-contact-notice">
-        <div className="admin-contact-icon">⚠️</div>
-        <div className="admin-contact-content">
-          <strong>YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
-          <div className="contact-numbers">
-            <div className="contact-item">
-              <span>📱 WhatsApp:</span>
-              <span>0142891121</span>
-            </div>
-            <div className="contact-item">
-              <span>📨 Telegram:</span>
-              <span>0142891121</span>
+        {/* Deposit Page */}
+        {currentPage === 'deposit' && (
+          <div className="deposit-container">
+            <div className="transaction-card">
+              <h2>Deposit Funds</h2>
+              
+              {/* IMPORTANT NOTICE - ADMIN CONTACT */}
+              <div className="admin-contact-notice">
+                <div className="admin-contact-icon">⚠️</div>
+                <div className="admin-contact-content">
+                  <strong>YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
+                  <div className="contact-numbers">
+                    <div className="contact-item">
+                      <span>📱 WhatsApp:</span>
+                      <span>0142891121</span>
+                    </div>
+                    <div className="contact-item">
+                      <span>📨 Telegram:</span>
+                      <span>0142891121</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Deposit Form */}
+              <div className="deposit-form">
+                <div className="form-group">
+                  <label>Amount (KES) *</label>
+                  <input 
+                    type="number" 
+                    placeholder="Enter amount (min KES 100)" 
+                    className="auth-input" 
+                    value={depositAmount} 
+                    onChange={(e) => setDepositAmount(e.target.value)} 
+                    disabled={showWaitingMessage}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>Your M-Pesa Phone Number *</label>
+                  <input 
+                    type="tel" 
+                    placeholder="e.g., 0712345678" 
+                    className="auth-input" 
+                    value={mpesaPhone} 
+                    onChange={(e) => setMpesaPhone(e.target.value)} 
+                    disabled={showWaitingMessage}
+                  />
+                </div>
+                
+                <div className="form-group">
+                  <label>M-Pesa Confirmation Message *</label>
+                  <textarea 
+                    placeholder="Paste your M-Pesa confirmation message here..." 
+                    className="auth-input" 
+                    rows="3" 
+                    value={mpesaMessage} 
+                    onChange={(e) => setMpesaMessage(e.target.value)} 
+                    disabled={showWaitingMessage}
+                    style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
+                  />
+                </div>
+                
+                {/* SUBMIT DEPOSIT REQUEST BUTTON */}
+                {!showWaitingMessage && (
+                  <button 
+                    className="btn-primary" 
+                    onClick={submitDepositRequest} 
+                    disabled={isSubmittingRequest}
+                  >
+                    {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
+                  </button>
+                )}
+                
+                {/* WAITING FOR ADMIN APPROVAL - Green Popout Message */}
+                {showWaitingMessage && (
+                  <div className="waiting-approval-green">
+                    <div className="waiting-icon-green">⏳</div>
+                    <div className="waiting-text-green">
+                      <strong>WAITING FOR ADMIN APPROVAL</strong>
+                      Your deposit request has been submitted.<br />
+                      Admin will review and approve your transaction.<br />
+                      You will be notified once approved.<br />
+                      <small>Check your balance after approval.</small>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="deposit-notes-compact">
+                <span>❌ Fake payments = account ban.</span>
+                <span>📋 Admin must approve your deposit before funds appear in your wallet.</span>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-      
-      {/* Deposit Form */}
-      <div className="deposit-form">
-        <div className="form-group">
-          <label>Amount (KES) *</label>
-          <input 
-            type="number" 
-            placeholder="Enter amount (min KES 100)" 
-            className="auth-input" 
-            value={depositAmount} 
-            onChange={(e) => setDepositAmount(e.target.value)} 
-            disabled={showWaitingMessage}
-          />
-        </div>
-        
-        <div className="form-group">
-          <label>Your M-Pesa Phone Number *</label>
-          <input 
-            type="tel" 
-            placeholder="e.g., 0712345678" 
-            className="auth-input" 
-            value={mpesaPhone} 
-            onChange={(e) => setMpesaPhone(e.target.value)} 
-            disabled={showWaitingMessage}
-          />
-        </div>
-        
-        {/* SUBMIT DEPOSIT REQUEST BUTTON - Hidden when waiting */}
-        {!showWaitingMessage && (
-          <button 
-            className="btn-primary" 
-            onClick={submitDepositRequest} 
-            disabled={isSubmittingRequest}
-          >
-            {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
-          </button>
         )}
-        
-        {/* WAITING FOR ADMIN APPROVAL - Green Popout Message */}
-        {showWaitingMessage && (
-          <div className="waiting-approval-green">
-            <div className="waiting-icon-green">✅</div>
-            <div className="waiting-text-green">
-              <strong>WAITING FOR ADMIN APPROVAL</strong>
-              Your request has been sent.<br />
-              Admin will approve shortly.
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* M-Pesa Message Section - For VERIFYING payment after admin approval */}
-      <div className="mpesa-message-section">
-        <div className="form-group">
-          <label>M-Pesa Confirmation Message *</label>
-          <textarea 
-            placeholder="After admin approves, paste your M-Pesa confirmation message here..." 
-            className="auth-input" 
-            rows="3" 
-            value={mpesaMessage} 
-            onChange={(e) => setMpesaMessage(e.target.value)} 
-            style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
-          />
-        </div>
-        <button 
-          className="btn-secondary" 
-          onClick={verifyPayment} 
-          disabled={isVerifyingPayment}
-        >
-          {isVerifyingPayment ? 'Verifying...' : 'Verify Payment'}
-        </button>
-      </div>
-      
-      <div className="deposit-notes-compact">
-        <span>❌ Fake payments = account ban.</span>
-      </div>
-    </div>
-  </div>
-)}
 
         {/* Withdraw Page */}
         {currentPage === 'withdraw' && (

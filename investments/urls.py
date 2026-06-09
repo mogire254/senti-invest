@@ -35,10 +35,17 @@ urlpatterns = [
     path('api/withdraw/', views.request_withdrawal, name='withdraw'),
     path('api/withdrawal-history/', views.get_withdrawal_history, name='withdrawal-history'),
     
-    # M-Pesa Deposit
+    # M-Pesa Deposit (Old - Keep for compatibility)
     path('api/mpesa-deposit/', views.request_mpesa_deposit, name='mpesa-deposit'),
     path('api/verify-payment/', views.verify_mpesa_payment, name='verify-payment'),
     path('api/verify-manual-payment/', views.verify_manual_payment, name='verify-manual-payment'),
+    
+    # ========== NEW DEPOSIT APPROVAL SYSTEM (Admin Approval Required) ==========
+    path('api/submit-deposit-request/', views.submit_deposit_request, name='submit-deposit-request'),
+    path('api/check-deposit-status/', views.check_deposit_status, name='check-deposit-status'),
+    path('api/admin-approve-deposit/', views.admin_approve_deposit, name='admin-approve-deposit'),
+    path('api/admin-reject-deposit/', views.admin_reject_deposit, name='admin-reject-deposit'),
+    path('api/admin-pending-deposits/', views.admin_get_pending_deposits, name='admin-pending-deposits'),
     
     # Daily Earnings
     path('api/process-daily-earnings/', views.process_daily_earnings_api, name='process-daily'),
