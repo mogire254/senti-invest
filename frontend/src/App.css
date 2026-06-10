@@ -2459,3 +2459,96 @@ tr.status-rejected td {
   color: #dc2626;
   font-weight: 500;
 }
+/* Deposit Page - Separate Sections */
+.deposit-request-section {
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.verify-payment-section {
+  margin-top: 10px;
+}
+
+.deposit-request-section h3,
+.verify-payment-section h3 {
+  font-size: 16px;
+  color: #333;
+  margin-bottom: 15px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #667eea;
+}
+
+/* Verify Payment Button */
+.btn-verify {
+  margin-top: 12px;
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-verify:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(59, 130, 246, 0.3);
+}
+
+.btn-verify:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.verify-note {
+  font-size: 12px;
+  color: #666;
+  margin-top: 10px;
+  text-align: center;
+  background: #f0f9ff;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+/* Waiting Approval Green Message */
+.waiting-approval-green {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin: 20px 0;
+  text-align: center;
+  color: white;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+  animation: fadeIn 0.5s ease;
+}
+
+.waiting-icon-green {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.waiting-text-green {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.waiting-text-green strong {
+  font-size: 18px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
