@@ -29,6 +29,34 @@ def check_maintenance():
         pass
     return None
 
+# ========== EXTRACT TRANSACTION ID FROM M-PESA MESSAGE ==========
+def extract_transaction_id(mpesa_message):
+    """Extract the real transaction ID from M-Pesa confirmation message"""
+    if not mpesa_message:
+        return None
+    
+    # Pattern 1: "UF9KB719CK Confirmed" - Transaction ID at start
+    txn_match = re.search(r'^([A-Z0-9]{8,12})\s+Confirmed', mpesa_message)
+    if txn_match:
+        return txn_match.group(1)
+    
+    # Pattern 2: "TRANSACTION ID: XXXX" format
+    txn_match = re.search(r'(?:Transaction|Txn)\s*ID:?\s*([A-Z0-9]{8,12})', mpesa_message, re.IGNORECASE)
+    if txn_match:
+        return txn_match.group(1)
+    
+    # Pattern 3: Any 8-12 character alphanumeric at start
+    txn_match = re.match(r'^([A-Z0-9]{8,12})', mpesa_message.strip())
+    if txn_match:
+        return txn_match.group(1)
+    
+    # Pattern 4: Look for code like "RF9KB719CK" in the message
+    txn_match = re.search(r'\b([A-Z0-9]{8,12})\b', mpesa_message)
+    if txn_match:
+        return txn_match.group(1)
+    
+    return None
+
 # ========== TEST ENDPOINT ==========
 @api_view(['GET'])
 def test_api(request):
@@ -774,10 +802,21 @@ def submit_deposit_request(request):
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=404)
         
-        # Generate unique transaction ID
-        transaction_id = str(uuid.uuid4())[:8].upper()
+        # ========== EXTRACT REAL TRANSACTION ID FROM M-PESA MESSAGE ==========
+        transaction_id = extract_transaction_id(mpesa_message)
         
-        # Create deposit with 'pending_approval' status - NO money added yet
+        # If no transaction ID found, generate a random one as fallback (but warn)
+        if not transaction_id:
+            transaction_id = str(uuid.uuid4())[:8].upper()
+            print(f"⚠️ Could not extract transaction ID from message, generated: {transaction_id}")
+        else:
+            print(f"✅ Extracted Transaction ID: {transaction_id}")
+        
+        # Check if transaction ID already exists (prevent duplicate)
+        if Deposit.objects.filter(transaction_id=transaction_id).exists():
+            return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
+        
+        # Create deposit with extracted transaction ID - NO money added yet
         deposit = Deposit.objects.create(
             user=user,
             amount=amount,
@@ -796,13 +835,14 @@ def submit_deposit_request(request):
         print(f"   💵 Amount: KES {amount:,.0f}")
         print(f"   📱 Phone: {phone_number}")
         print(f"   🆔 Transaction ID: {transaction_id}")
+        print(f"   📝 Message: {mpesa_message[:200] if mpesa_message else 'No message'}")
         print("="*60)
         print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/deposit/")
         print("="*60 + "\n")
         
         return Response({
             'success': True,
-            'message': f'✅ Deposit request of KES {amount:,.0f} submitted for admin approval. You will be notified once approved.',
+            'message': f'✅ Deposit request of KES {amount:,.0f} submitted for admin approval. Transaction ID: {transaction_id}',
             'transaction_id': transaction_id,
             'pending_approval': True
         })
