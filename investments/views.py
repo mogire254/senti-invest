@@ -1753,7 +1753,8 @@ def get_referral_info(request):
         pending_total = sum(b.amount for b in pending_bonuses)
         claimed_total = sum(b.amount for b in claimed_bonuses)
         
-        site_url = "https://senti-earn.netlify.app"
+        # FIXED: Changed from Netlify to Render URL
+        site_url = "https://senti-invest.onrender.com"
         referral_link = f"{site_url}/signup?ref={referral_code}"
         
         referrer_name = None
@@ -1785,6 +1786,7 @@ def get_referral_info(request):
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
 
 @api_view(['POST'])
 def claim_bonus(request):
@@ -1831,6 +1833,7 @@ def claim_bonus(request):
         return Response({'error': 'Bonus not found or already claimed'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
 
 # ========== INVESTMENT UPGRADE ENDPOINT ==========
 @api_view(['POST'])
