@@ -437,7 +437,7 @@ function App() {
     }
   };
 
-  // ========== STEP 1: SUBMIT DEPOSIT REQUEST ==========
+  // ========== STEP 1: SUBMIT DEPOSIT REQUEST - FIXED ENDPOINT ==========
   const submitDepositRequest = async () => {
     const amount = parseFloat(depositAmount);
     if (!amount || amount < 100) {
@@ -452,7 +452,8 @@ function App() {
     setIsSubmittingRequest(true);
     
     try {
-      const response = await axios.post(`${API_URL}/submit-deposit-request/`, {
+      // FIXED: Using correct endpoint /request-mpesa-deposit/
+      const response = await axios.post(`${API_URL}/request-mpesa-deposit/`, {
         user_id: userId,
         amount: amount,
         phone_number: mpesaPhone
@@ -464,7 +465,6 @@ function App() {
         setCurrentDepositId(response.data.deposit_id);
         setShowRequestSubmitted(true);
         showMessage(response.data.message, 'success');
-        // Don't clear the form - keep values for reference
       } else {
         showMessage(response.data.error || 'Failed to submit request', 'error');
       }
@@ -475,7 +475,7 @@ function App() {
     }
   };
 
-  // ========== STEP 2: VERIFY DEPOSIT (Paste M-Pesa Message) ==========
+  // ========== STEP 2: VERIFY DEPOSIT - FIXED ENDPOINT ==========
   const verifyDeposit = async () => {
     if (!mpesaMessage || mpesaMessage.length < 20) {
       showMessage('Please paste your full M-Pesa confirmation message', 'error');
@@ -485,20 +485,27 @@ function App() {
     setIsVerifyingPayment(true);
     
     try {
-      const response = await axios.post(`${API_URL}/verify-deposit/`, {
+      // FIXED: Using correct endpoint /verify-manual-payment/
+      const response = await axios.post(`${API_URL}/verify-manual-payment/`, {
         user_id: userId,
+        amount: parseFloat(depositAmount),
+        phone_number: mpesaPhone,
         mpesa_message: mpesaMessage
       });
       
       if (response.data.success) {
         showMessage(response.data.message, 'success');
         setMpesaMessage('');
-        // Keep showRequestSubmitted true - user can submit another request if needed
+        setShowRequestSubmitted(false);
+        setDepositAmount('');
+        setMpesaPhone('');
+        setCurrentDepositId(null);
         loadDashboardData(userId);
       } else {
         showMessage(response.data.error || 'Verification failed', 'error');
       }
     } catch (error) {
+      console.error('Verification error:', error);
       showMessage(error.response?.data?.error || 'Verification failed', 'error');
     } finally {
       setIsVerifyingPayment(false);
@@ -1009,7 +1016,7 @@ function App() {
           </>
         )}
 
-        {/* Deposit Page - NEW 2-STEP FLOW */}
+        {/* Deposit Page - FIXED ENDPOINTS */}
         {currentPage === 'deposit' && (
           <div className="deposit-container">
             <div className="transaction-card">
@@ -1019,17 +1026,18 @@ function App() {
               <div className="admin-contact-notice">
                 <div className="admin-contact-icon">⚠️</div>
                 <div className="admin-contact-content">
-                  <strong>YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
+                  <strong>KINDLY CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
                   <div className="contact-numbers">
                     <div className="contact-item">
                       <span>📱 WhatsApp:</span>
-                      <span>0142891121</span>
+                      <span><strong>0142891121</strong></span>
                     </div>
                     <div className="contact-item">
                       <span>📨 Telegram:</span>
-                      <span>0142891121</span>
+                      <span><strong>0142891121</strong></span>
                     </div>
                   </div>
+                  <p className="contact-note">Contact admin first to get approval before making any deposit!</p>
                 </div>
               </div>
               
@@ -1073,8 +1081,8 @@ function App() {
                     <div className="check-phone-message">
                       <div className="check-phone-icon">📱</div>
                       <div className="check-phone-text">
-                        <strong>CHECK YOUR PHONE</strong><br />
-                        Complete the M-PESA transaction on your phone.<br />
+                        <strong>📱 M-PESA Till: 3469753</strong><br />
+                        Complete the payment on your phone using Till Number <strong>3469753</strong><br />
                         Then paste the confirmation message below.
                       </div>
                     </div>
@@ -1113,6 +1121,7 @@ function App() {
               <div className="deposit-notes-compact">
                 <span>❌ Fake payments = account ban.</span>
                 <span>📋 Admin must approve your deposit before funds appear in your wallet.</span>
+                <span>📱 M-PESA Till Number: <strong>3469753</strong></span>
               </div>
             </div>
           </div>
