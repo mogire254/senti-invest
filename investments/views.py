@@ -53,7 +53,7 @@ def extract_transaction_id(mpesa_message):
     
     return None
 
-# ========== VALIDATE M-PESA MESSAGE (Merchant, Till, Amount) ==========
+# ========== VALIDATE M-PESA MESSAGE ==========
 def validate_mpesa_message(mpesa_message, expected_amount=None):
     """Validate M-Pesa message for correct merchant, till number, and amount"""
     if not mpesa_message:
@@ -579,24 +579,15 @@ def password_reset_page(request, token):
     
     return render(request, 'password_reset.html', {'token': token})
 
-# ========== MANUAL PAYMENT VERIFICATION (LEGACY - KEEP FOR COMPATIBILITY) ==========
+# ========== LEGACY MANUAL PAYMENT VERIFICATION ==========
 @api_view(['POST'])
 def verify_manual_payment(request):
-    """Verify manual M-Pesa payment by parsing the SMS message - LEGACY ENDPOINT"""
+    """Legacy manual payment verification - kept for compatibility"""
     try:
         user_id = request.data.get('user_id')
         amount = request.data.get('amount')
         phone_number = request.data.get('phone_number', '')
         mpesa_message = request.data.get('mpesa_message', '')
-        
-        print("\n" + "="*60)
-        print(f"📱 MANUAL PAYMENT VERIFICATION (LEGACY)")
-        print("="*60)
-        print(f"👤 User ID: {user_id}")
-        print(f"💵 Amount: KES {amount}")
-        print(f"📱 Phone: {phone_number}")
-        print(f"📝 Message: {mpesa_message[:100] if mpesa_message else 'None'}...")
-        print("="*60)
         
         if not mpesa_message:
             return Response({'error': 'Please paste your M-Pesa message'}, status=400)
@@ -616,7 +607,6 @@ def verify_manual_payment(request):
         
         user = User.objects.get(id=user_id)
         
-        # Check if transaction ID already exists
         if Deposit.objects.filter(transaction_id=transaction_id).exists():
             return Response({'error': 'This transaction ID has already been used.'}, status=400)
         
@@ -626,15 +616,13 @@ def verify_manual_payment(request):
             transaction_id=transaction_id,
             phone_number=phone_number,
             mpesa_message=mpesa_message,
-            verification_status='pending_approval',
+            verification_status='pending_admin_approval',
             status='pending'
         )
         
-        print(f"✅ Manual payment recorded (legacy): {user.username} - KES {extracted_amount}")
-        
         return Response({
             'success': True,
-            'message': f'Payment of KES {extracted_amount:,.0f} recorded! Admin will verify.',
+            'message': f'Payment recorded. Transaction ID: {transaction_id}. Admin will approve shortly.',
             'transaction_id': transaction_id,
             'pending_verification': True
         })
@@ -642,7 +630,6 @@ def verify_manual_payment(request):
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
-        print(f"❌ Manual payment error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
 # ========== NEW DEPOSIT SYSTEM (Step 1: Submit Request) ==========
@@ -697,7 +684,6 @@ def submit_deposit_request(request):
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=404)
         
-        # Create deposit request with pending_approval status
         request_id = str(uuid.uuid4())[:8].upper()
         
         deposit = Deposit.objects.create(
@@ -709,7 +695,7 @@ def submit_deposit_request(request):
             status='pending'
         )
         
-        print(f"✅ Deposit request created: {user.username} - KES {amount:,.0f} - Request ID: {request_id}")
+        print(f"✅ Deposit request created: {user.username} - KES {amount:,.0f}")
         
         return Response({
             'success': True,
@@ -759,7 +745,6 @@ def verify_deposit_payment(request):
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
         
-        # Get the most recent pending deposit request for this user
         pending_deposit = Deposit.objects.filter(
             user=user,
             verification_status='pending_approval',
@@ -769,31 +754,27 @@ def verify_deposit_payment(request):
         if not pending_deposit:
             return Response({'error': 'No pending deposit request found. Please submit a deposit request first.'}, status=404)
         
-        # Validate the M-Pesa message
         validation = validate_mpesa_message(mpesa_message, pending_deposit.amount)
         
         if not validation['valid']:
             print(f"❌ Message validation failed: {validation['error']}")
             return Response({'error': validation['error']}, status=400)
         
-        # Extract transaction ID from message
         real_transaction_id = validation['transaction_id']
         
-        # Check if transaction ID already used
         if Deposit.objects.filter(transaction_id=real_transaction_id).exists():
             return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
         
-        # Update the deposit record with the message and real transaction ID
         pending_deposit.mpesa_message = mpesa_message
         pending_deposit.transaction_id = real_transaction_id
         pending_deposit.verification_status = 'pending_admin_approval'
         pending_deposit.save()
         
-        print(f"✅ Deposit verified: {user.username} - KES {pending_deposit.amount:,.0f} - Waiting for admin approval")
+        print(f"✅ Deposit verified: {user.username} - KES {pending_deposit.amount:,.0f} - Transaction ID: {real_transaction_id} - Waiting for admin approval")
         
         return Response({
             'success': True,
-            'message': f'✅ Your M-Pesa payment has been recorded. Admin will review and approve your deposit. Funds will appear in your wallet after approval.',
+            'message': f'✅ Your M-Pesa payment has been recorded.\n\n📋 Transaction ID: {real_transaction_id}\n💰 Amount: KES {pending_deposit.amount:,.0f}\n\n⏳ Please wait for admin approval (10-30 seconds). Funds will appear in your wallet after approval.',
             'deposit_id': pending_deposit.id,
             'amount': float(pending_deposit.amount),
             'transaction_id': real_transaction_id,
@@ -811,15 +792,22 @@ def check_deposit_status(request):
     """User checks if their deposit has been approved by admin"""
     try:
         user_id = request.GET.get('user_id')
-        transaction_id = request.GET.get('transaction_id')
+        deposit_id = request.GET.get('deposit_id')
         
-        if not user_id or not transaction_id:
-            return Response({'error': 'User ID and transaction ID required'}, status=400)
+        if not user_id or not deposit_id:
+            return Response({'error': 'User ID and deposit ID required'}, status=400)
         
         try:
-            deposit = Deposit.objects.get(transaction_id=transaction_id, user_id=user_id)
+            deposit = Deposit.objects.get(id=deposit_id, user_id=user_id)
         except Deposit.DoesNotExist:
             return Response({'error': 'Deposit not found'}, status=404)
+        
+        status_map = {
+            'approved': 'approved',
+            'pending_admin_approval': 'pending_admin_approval',
+            'pending_approval': 'pending_approval',
+            'rejected': 'rejected'
+        }
         
         status_message = ''
         if deposit.verification_status == 'approved':
@@ -827,15 +815,16 @@ def check_deposit_status(request):
         elif deposit.verification_status == 'pending_approval':
             status_message = '⏳ Please complete your M-Pesa transaction and paste the confirmation message.'
         elif deposit.verification_status == 'pending_admin_approval':
-            status_message = '⏳ Deposit pending admin approval. Check back shortly.'
+            status_message = '⏳ Deposit pending admin approval. Please wait 10-30 seconds... Funds will appear after approval.'
         elif deposit.verification_status == 'rejected':
             status_message = f'❌ Deposit rejected. Reason: {deposit.rejection_reason or "Contact admin for details."}'
         
         return Response({
             'success': True,
-            'status': deposit.verification_status,
+            'status': status_map.get(deposit.verification_status, deposit.verification_status),
             'amount': float(deposit.amount),
-            'message': status_message
+            'message': status_message,
+            'transaction_id': deposit.transaction_id
         })
         
     except Exception as e:
@@ -950,8 +939,7 @@ def admin_reject_deposit(request):
         return Response({
             'success': True,
             'message': f'❌ Deposit rejected.{deduct_message}',
-            'reason': reason
-        })
+            'reason': reason        })
         
     except Exception as e:
         print(f"❌ Admin reject deposit error: {str(e)}")

@@ -27,6 +27,7 @@ urlpatterns = [
     path('api/products/', views.get_products, name='products'),
     path('api/invest/', views.invest_product, name='invest'),
     path('api/my-investments/', views.get_user_investments, name='my-investments'),
+    path('api/upgrade-investment/', views.upgrade_investment, name='upgrade-investment'),
     
     # Wallet and Transactions
     path('api/wallet/', views.get_wallet, name='wallet'),
@@ -38,14 +39,24 @@ urlpatterns = [
     path('api/verify-payment/', views.verify_mpesa_payment, name='verify-payment'),
     path('api/verify-manual-payment/', views.verify_manual_payment, name='verify-manual-payment'),
     
-    # ========== NEW DEPOSIT SYSTEM ==========
+    # ========== NEW DEPOSIT SYSTEM (2-STEP WITH ADMIN APPROVAL) ==========
+    # Step 1: User submits deposit request
     path('api/submit-deposit-request/', views.submit_deposit_request, name='submit-deposit-request'),
-    path('api/verify-deposit-payment/', views.verify_deposit_payment, name='verify-deposit-payment'),
+    
+    # Step 2: User pastes M-Pesa message for verification
+    path('api/verify-deposit/', views.verify_deposit_payment, name='verify-deposit'),
+    
+    # Check deposit status
     path('api/check-deposit-status/', views.check_deposit_status, name='check-deposit-status'),
+    
+    # Admin deposit endpoints
     path('api/admin-approve-deposit/', views.admin_approve_deposit, name='admin-approve-deposit'),
     path('api/admin-reject-deposit/', views.admin_reject_deposit, name='admin-reject-deposit'),
     path('api/admin-pending-deposits/', views.admin_get_pending_deposits, name='admin-pending-deposits'),
+    
+    # Admin wallet management
     path('api/admin-wallets/', views.admin_get_all_wallets, name='admin-wallets'),
+    path('api/admin-adjust-balance/', views.admin_adjust_balance, name='admin-adjust-balance'),
     
     # Daily Earnings
     path('api/process-daily-earnings/', views.process_daily_earnings_api, name='process-daily'),
@@ -57,10 +68,6 @@ urlpatterns = [
     path('api/referral-list-status/', views.get_referral_list_with_status, name='referral-list-status'),
     path('api/bonus-history/', views.get_bonus_history, name='bonus-history'),
     
-    # Admin endpoints
-    path('api/admin-adjust-balance/', views.admin_adjust_balance, name='admin-adjust-balance'),
+    # Admin referral stats
     path('api/admin-referral-stats/', views.admin_referral_stats, name='admin-referral-stats'),
-    
-    # Investment Upgrade
-    path('api/upgrade-investment/', views.upgrade_investment, name='upgrade-investment'),
 ]
