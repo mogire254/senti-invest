@@ -1754,7 +1754,7 @@ def get_referral_info(request):
         claimed_total = sum(b.amount for b in claimed_bonuses)
         
         # FIXED: Changed from Netlify to Render URL
-        site_url = "https://senti-invest.onrender.com"
+        site_url = "https://senti-earn.onrender.com"
         referral_link = f"{site_url}/signup?ref={referral_code}"
         
         referrer_name = None
