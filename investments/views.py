@@ -53,12 +53,13 @@ def extract_transaction_id(mpesa_message):
     
     return None
 
-# ========== VALIDATE M-PESA MESSAGE ==========
+# ========== VALIDATE M-PESA MESSAGE (Internal validation only - no till numbers) ==========
 def validate_mpesa_message(mpesa_message, expected_amount=None):
-    """Validate M-Pesa message for correct merchant, till number, and amount"""
+    """Validate M-Pesa message - validates merchant names only, no till numbers"""
     if not mpesa_message:
         return {'valid': False, 'error': 'No message provided'}
     
+    # List of valid merchant names (ONLY THESE - no till numbers)
     valid_merchants = [
         'MUTHONI MUTHOGA',
         'BRIAN MOGIRE NYABUTO',
@@ -68,22 +69,24 @@ def validate_mpesa_message(mpesa_message, expected_amount=None):
         'DORCAS NJERI'
     ]
     
-    valid_till_numbers = ['3469753', '9315062', '9307094']
-    
+    # Extract transaction ID
     transaction_id = extract_transaction_id(mpesa_message)
     
+    # Extract amount
     amount_match = re.search(r'Ksh([\d,]+\.?\d*)', mpesa_message, re.IGNORECASE)
     if not amount_match:
         return {'valid': False, 'error': 'Could not find amount in the message. Please paste the full M-Pesa confirmation message.'}
     
     paid_amount = Decimal(amount_match.group(1).replace(',', ''))
     
+    # Check if amount matches expected
     if expected_amount and paid_amount != expected_amount:
         return {'valid': False, 'error': f'Amount mismatch. Expected KES {expected_amount:,.0f}, but paid KES {paid_amount:,.0f}'}
     
     if paid_amount < 100:
         return {'valid': False, 'error': f'Minimum deposit is KES 100. You paid KES {paid_amount:,.0f}'}
     
+    # Check if paid to valid merchant name
     merchant_found = False
     for merchant in valid_merchants:
         if merchant.upper() in mpesa_message.upper():
@@ -91,16 +94,7 @@ def validate_mpesa_message(mpesa_message, expected_amount=None):
             break
     
     if not merchant_found:
-        return {'valid': False, 'error': f'Payment not made to an approved merchant. Please pay to: {", ".join(valid_merchants[:3])}'}
-    
-    till_found = False
-    for till in valid_till_numbers:
-        if till in mpesa_message:
-            till_found = True
-            break
-    
-    if not till_found:
-        return {'valid': False, 'error': f'Payment not made to an approved till number. Valid tills: {", ".join(valid_till_numbers)}'}
+        return {'valid': False, 'error': 'Payment verification failed. Please ensure you paid to the correct merchant. Contact admin for assistance.'}
     
     return {
         'valid': True,
@@ -738,6 +732,7 @@ def verify_deposit_payment(request):
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
         
+        # Get the most recent pending deposit request for this user
         pending_deposit = Deposit.objects.filter(
             user=user,
             verification_status='pending_approval',
@@ -747,17 +742,21 @@ def verify_deposit_payment(request):
         if not pending_deposit:
             return Response({'error': 'No pending deposit request found. Please submit a deposit request first.'}, status=404)
         
+        # Validate the M-Pesa message
         validation = validate_mpesa_message(mpesa_message, pending_deposit.amount)
         
         if not validation['valid']:
             print(f"❌ Message validation failed: {validation['error']}")
             return Response({'error': validation['error']}, status=400)
         
+        # Extract transaction ID from message
         real_transaction_id = validation['transaction_id']
         
+        # Check if transaction ID already used
         if Deposit.objects.filter(transaction_id=real_transaction_id).exists():
             return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
         
+        # Update the deposit record with the message and real transaction ID
         pending_deposit.mpesa_message = mpesa_message
         pending_deposit.transaction_id = real_transaction_id
         pending_deposit.verification_status = 'pending_admin_approval'
@@ -765,9 +764,10 @@ def verify_deposit_payment(request):
         
         print(f"✅ Deposit verified: {user.username} - KES {pending_deposit.amount:,.0f} - Transaction ID: {real_transaction_id} - Waiting for admin approval")
         
+        # User-friendly response - NO till numbers or merchant names shown
         return Response({
             'success': True,
-            'message': f'✅ Your M-Pesa payment has been recorded.\n\n📋 Transaction ID: {real_transaction_id}\n💰 Amount: KES {pending_deposit.amount:,.0f}\n\n⏳ Please wait for admin approval. Funds will appear in your wallet after approval.',
+            'message': f'✅ Your M-Pesa payment has been recorded successfully.\n\n📋 Transaction ID: {real_transaction_id}\n💰 Amount: KES {pending_deposit.amount:,.0f}\n\n⏳ Please wait for admin approval. Funds will appear in your wallet after approval.',
             'deposit_id': pending_deposit.id,
             'amount': float(pending_deposit.amount),
             'transaction_id': real_transaction_id,
