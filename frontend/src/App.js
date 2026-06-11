@@ -463,8 +463,7 @@ function App() {
         setSubmittedPhone(mpesaPhone);
         setCurrentDepositId(response.data.deposit_id);
         setShowRequestSubmitted(true);
-        showMessage(response.data.message, 'success');
-        // Don't clear the form - keep values for reference
+        showMessage('📱 CHECK YOUR PHONE - Complete M-Pesa transaction using Till 3469753', 'success');
       } else {
         showMessage(response.data.error || 'Failed to submit request', 'error');
       }
@@ -475,7 +474,7 @@ function App() {
     }
   };
 
-  // ========== STEP 2: VERIFY DEPOSIT (Paste M-Pesa Message) ==========
+  // ========== STEP 2: VERIFY DEPOSIT - FIXED WITH CORRECT ENDPOINT ==========
   const verifyDeposit = async () => {
     if (!mpesaMessage || mpesaMessage.length < 20) {
       showMessage('Please paste your full M-Pesa confirmation message', 'error');
@@ -484,22 +483,46 @@ function App() {
     
     setIsVerifyingPayment(true);
     
+    // Show waiting message
+    showMessage('⏳ Verifying your payment... Please wait', 'info');
+    
     try {
-      const response = await axios.post(`${API_URL}/verify-deposit/`, {
+      // FIXED: Using correct endpoint /verify-manual-payment/
+      const response = await axios.post(`${API_URL}/verify-manual-payment/`, {
         user_id: userId,
+        amount: parseFloat(depositAmount),
+        phone_number: mpesaPhone,
         mpesa_message: mpesaMessage
       });
       
       if (response.data.success) {
-        showMessage(response.data.message, 'success');
+        // Extract transaction ID from response
+        const transactionId = response.data.transaction_id || 'Processing';
+        showMessage(`✅ Payment recorded! Transaction ID: ${transactionId}\n\n⏳ Admin will review and approve your deposit shortly.`, 'success');
+        
+        // Clear form
         setMpesaMessage('');
-        // Keep showRequestSubmitted true - user can submit another request if needed
-        loadDashboardData(userId);
+        setShowRequestSubmitted(false);
+        setDepositAmount('');
+        setMpesaPhone('');
+        setCurrentDepositId(null);
+        
+        // Refresh dashboard after 5 seconds
+        setTimeout(() => {
+          loadDashboardData(userId);
+          showMessage('🔄 Balance refreshed. Check your wallet.', 'info');
+        }, 5000);
+        
       } else {
-        showMessage(response.data.error || 'Verification failed', 'error');
+        showMessage(response.data.error || 'Verification failed. Please contact admin on WhatsApp 0142891121', 'error');
       }
     } catch (error) {
-      showMessage(error.response?.data?.error || 'Verification failed', 'error');
+      console.error('Verification error:', error);
+      if (error.response?.status === 404) {
+        showMessage('Service temporarily unavailable. Please try again in a few minutes.', 'error');
+      } else {
+        showMessage(error.response?.data?.error || 'Verification failed. Please contact admin on WhatsApp 0142891121', 'error');
+      }
     } finally {
       setIsVerifyingPayment(false);
     }
@@ -1009,7 +1032,7 @@ function App() {
           </>
         )}
 
-        {/* Deposit Page - NEW 2-STEP FLOW */}
+        {/* Deposit Page - 2-STEP FLOW with FIXED verification */}
         {currentPage === 'deposit' && (
           <div className="deposit-container">
             <div className="transaction-card">
@@ -1074,7 +1097,7 @@ function App() {
                       <div className="check-phone-icon">📱</div>
                       <div className="check-phone-text">
                         <strong>CHECK YOUR PHONE</strong><br />
-                        Complete the M-PESA transaction on your phone.<br />
+                        Complete the M-PESA transaction using Till Number <strong>3469753</strong><br />
                         Then paste the confirmation message below.
                       </div>
                     </div>
