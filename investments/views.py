@@ -35,22 +35,18 @@ def extract_transaction_id(mpesa_message):
     if not mpesa_message:
         return None
     
-    # Pattern: "XXX1234567890 Confirmed" at start of message
     txn_match = re.search(r'^([A-Z0-9]{8,12})\s+Confirmed', mpesa_message)
     if txn_match:
         return txn_match.group(1)
     
-    # Pattern: "Transaction ID: XXX1234567890"
     txn_match = re.search(r'(?:Transaction|Txn)\s*ID:?\s*([A-Z0-9]{8,12})', mpesa_message, re.IGNORECASE)
     if txn_match:
         return txn_match.group(1)
     
-    # Pattern: First word that looks like a transaction ID
     txn_match = re.match(r'^([A-Z0-9]{8,12})', mpesa_message.strip())
     if txn_match:
         return txn_match.group(1)
     
-    # Any 8-12 character alphanumeric string
     txn_match = re.search(r'\b([A-Z0-9]{8,12})\b', mpesa_message)
     if txn_match:
         return txn_match.group(1)
@@ -63,7 +59,6 @@ def validate_mpesa_message(mpesa_message, expected_amount=None):
     if not mpesa_message:
         return {'valid': False, 'error': 'No message provided'}
     
-    # List of valid merchant names
     valid_merchants = [
         'MUTHONI MUTHOGA',
         'BRIAN MOGIRE NYABUTO',
@@ -73,27 +68,22 @@ def validate_mpesa_message(mpesa_message, expected_amount=None):
         'DORCAS NJERI'
     ]
     
-    # List of valid till numbers
     valid_till_numbers = ['3469753', '9315062', '9307094']
     
-    # Extract transaction ID
     transaction_id = extract_transaction_id(mpesa_message)
     
-    # Extract amount
     amount_match = re.search(r'Ksh([\d,]+\.?\d*)', mpesa_message, re.IGNORECASE)
     if not amount_match:
         return {'valid': False, 'error': 'Could not find amount in the message. Please paste the full M-Pesa confirmation message.'}
     
     paid_amount = Decimal(amount_match.group(1).replace(',', ''))
     
-    # Check if amount matches expected
     if expected_amount and paid_amount != expected_amount:
         return {'valid': False, 'error': f'Amount mismatch. Expected KES {expected_amount:,.0f}, but paid KES {paid_amount:,.0f}'}
     
     if paid_amount < 100:
         return {'valid': False, 'error': f'Minimum deposit is KES 100. You paid KES {paid_amount:,.0f}'}
     
-    # Check if paid to valid merchant
     merchant_found = False
     for merchant in valid_merchants:
         if merchant.upper() in mpesa_message.upper():
@@ -103,7 +93,6 @@ def validate_mpesa_message(mpesa_message, expected_amount=None):
     if not merchant_found:
         return {'valid': False, 'error': f'Payment not made to an approved merchant. Please pay to: {", ".join(valid_merchants[:3])}'}
     
-    # Check if paid to valid till number
     till_found = False
     for till in valid_till_numbers:
         if till in mpesa_message:
@@ -714,8 +703,8 @@ def submit_deposit_request(request):
         return Response({'error': str(e)}, status=500)
 
 
-# ========== NEW DEPOSIT SYSTEM (Step 2: Verify Payment) - FIXED DECORATOR ==========
-@api_view(['POST'])  # ← CORRECT: Only POST method
+# ========== NEW DEPOSIT SYSTEM (Step 2: Verify Payment) ==========
+@api_view(['POST'])
 def verify_deposit_payment(request):
     """Step 2: User pastes M-Pesa message - validates and updates deposit (NO money added yet)"""
     try:
@@ -749,7 +738,6 @@ def verify_deposit_payment(request):
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
         
-        # Find the pending deposit request (Step 1)
         pending_deposit = Deposit.objects.filter(
             user=user,
             verification_status='pending_approval',
@@ -759,7 +747,6 @@ def verify_deposit_payment(request):
         if not pending_deposit:
             return Response({'error': 'No pending deposit request found. Please submit a deposit request first.'}, status=404)
         
-        # Validate the M-Pesa message
         validation = validate_mpesa_message(mpesa_message, pending_deposit.amount)
         
         if not validation['valid']:
@@ -768,11 +755,9 @@ def verify_deposit_payment(request):
         
         real_transaction_id = validation['transaction_id']
         
-        # Check if this transaction ID was already used
         if Deposit.objects.filter(transaction_id=real_transaction_id).exists():
             return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
         
-        # Update the deposit with the real transaction ID and message
         pending_deposit.mpesa_message = mpesa_message
         pending_deposit.transaction_id = real_transaction_id
         pending_deposit.verification_status = 'pending_admin_approval'
@@ -782,7 +767,7 @@ def verify_deposit_payment(request):
         
         return Response({
             'success': True,
-            'message': f'✅ Your M-Pesa payment has been recorded.\n\n📋 Transaction ID: {real_transaction_id}\n💰 Amount: KES {pending_deposit.amount:,.0f}\n\n⏳ Please wait for admin approval (10-30 seconds). Funds will appear in your wallet after approval.',
+            'message': f'✅ Your M-Pesa payment has been recorded.\n\n📋 Transaction ID: {real_transaction_id}\n💰 Amount: KES {pending_deposit.amount:,.0f}\n\n⏳ Please wait for admin approval. Funds will appear in your wallet after approval.',
             'deposit_id': pending_deposit.id,
             'amount': float(pending_deposit.amount),
             'transaction_id': real_transaction_id,
@@ -823,7 +808,7 @@ def check_deposit_status(request):
         elif deposit.verification_status == 'pending_approval':
             status_message = '⏳ Please complete your M-Pesa transaction and paste the confirmation message.'
         elif deposit.verification_status == 'pending_admin_approval':
-            status_message = '⏳ Deposit pending admin approval. Please wait 10-30 seconds... Funds will appear after approval.'
+            status_message = '⏳ Deposit pending admin approval. Funds will appear after approval.'
         elif deposit.verification_status == 'rejected':
             status_message = f'❌ Deposit rejected. Reason: {deposit.rejection_reason or "Contact admin for details."}'
         
@@ -862,7 +847,6 @@ def admin_approve_deposit(request):
         if deposit.verification_status != 'pending_admin_approval':
             return Response({'error': f'Deposit already {deposit.verification_status}. Cannot approve again.'}, status=400)
         
-        # ADD MONEY TO WALLET - ONLY HERE!
         wallet, created = Wallet.objects.get_or_create(user=deposit.user)
         wallet.balance += deposit.amount
         wallet.total_deposited += deposit.amount
@@ -874,7 +858,6 @@ def admin_approve_deposit(request):
         deposit.approved_by = request.data.get('approved_by', 'admin')
         deposit.save()
         
-        # Update referral status
         update_referral_status(deposit.user)
         
         FraudLog.objects.create(
@@ -1026,11 +1009,6 @@ def request_mpesa_deposit(request):
 def verify_mpesa_payment(request):
     """Legacy verify endpoint"""
     return Response({'error': 'Please use the new deposit system'}, status=400)
-
-
-# ========== THE REST OF YOUR EXISTING VIEWS GO BELOW ==========
-# (Account Status, Products, Investments, Withdrawals, Referrals, etc.)
-# ... [keep all your other existing functions unchanged] ...
 
 
 # ========== ACCOUNT STATUS FUNCTIONS ==========
@@ -1731,6 +1709,7 @@ def track_referral(request):
         print(f"Referral tracking error: {e}")
         return Response({'success': True})
 
+# ========== GET REFERRAL INFO - FIXED URL (NO /signup) ==========
 @api_view(['GET'])
 def get_referral_info(request):
     """Get user's referral link, stats, and bonuses"""
@@ -1753,9 +1732,10 @@ def get_referral_info(request):
         pending_total = sum(b.amount for b in pending_bonuses)
         claimed_total = sum(b.amount for b in claimed_bonuses)
         
-        # FIXED: Changed from Netlify to Render URL
+        # ========== FIXED: Removed /signup from URL ==========
         site_url = "https://senti-earn.onrender.com"
-        referral_link = f"{site_url}/signup?ref={referral_code}"
+        referral_link = f"{site_url}/?ref={referral_code}"
+        # ====================================================
         
         referrer_name = None
         if profile.referred_by:
