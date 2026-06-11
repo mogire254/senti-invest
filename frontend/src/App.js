@@ -1057,53 +1057,53 @@ function App() {
               </div>
               
               {/* SECTION 1: SUBMIT DEPOSIT REQUEST */}
-              <div className="deposit-request-section">
-                <h3>Step 1: Request Deposit Approval</h3>
-                <div className="deposit-form">
-                  <div className="form-group">
-                    <label>Amount (KES) *</label>
-                    <input 
-                      type="number" 
-                      placeholder="Enter amount (min KES 100)" 
-                      className="auth-input" 
-                      value={depositAmount} 
-                      onChange={(e) => setDepositAmount(e.target.value)} 
-                      disabled={showRequestSubmitted}
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Your M-Pesa Phone Number *</label>
-                    <input 
-                      type="tel" 
-                      placeholder="e.g., 0712345678" 
-                      className="auth-input" 
-                      value={mpesaPhone} 
-                      onChange={(e) => setMpesaPhone(e.target.value)} 
-                      disabled={showRequestSubmitted}
-                    />
-                  </div>
-                  
-                  {!showRequestSubmitted ? (
-                    <button 
-                      className="btn-primary" 
-                      onClick={submitDepositRequest} 
-                      disabled={isSubmittingRequest}
-                    >
-                      {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
-                    </button>
-                  ) : (
-                    <div className="check-phone-message">
-                      <div className="check-phone-icon">📱</div>
-                      <div className="check-phone-text">
-                        <strong>CHECK YOUR PHONE</strong><br />
-                        Complete the M-PESA transaction using Till Number <strong>3469753</strong><br />
-                        Then paste the confirmation message below.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
+<div className="deposit-request-section">
+  <h3>Step 1: Request Deposit Approval</h3>
+  <div className="deposit-form">
+    <div className="form-group">
+      <label>Amount (KES) *</label>
+      <input 
+        type="number" 
+        placeholder="Enter amount (min KES 100)" 
+        className="auth-input" 
+        value={depositAmount} 
+        onChange={(e) => setDepositAmount(e.target.value)} 
+        disabled={showRequestSubmitted}
+      />
+    </div>
+    
+    <div className="form-group">
+      <label>Your M-Pesa Phone Number *</label>
+      <input 
+        type="tel" 
+        placeholder="e.g., 0712345678" 
+        className="auth-input" 
+        value={mpesaPhone} 
+        onChange={(e) => setMpesaPhone(e.target.value)} 
+        disabled={showRequestSubmitted}
+      />
+    </div>
+    
+    {!showRequestSubmitted ? (
+      <button 
+        className="btn-primary" 
+        onClick={submitDepositRequest} 
+        disabled={isSubmittingRequest}
+      >
+        {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
+      </button>
+    ) : (
+      <div className="check-phone-message">
+        <div className="check-phone-icon">📱</div>
+        <div className="check-phone-text">
+          <strong>CHECK YOUR PHONE</strong><br />
+          Complete the M-PESA transaction on your phone.<br />
+          Then paste the confirmation message below.
+        </div>
+      </div>
+    )}
+  </div>
+</div>
               
               {/* SECTION 2: VERIFY PAYMENT - Only show after step 1 submitted */}
               {showRequestSubmitted && (
