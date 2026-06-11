@@ -2552,3 +2552,29 @@ tr.status-rejected td {
     transform: translateY(0);
   }
 }
+/* Check Phone Message */
+.check-phone-message {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 16px;
+  padding: 20px;
+  margin-top: 20px;
+  text-align: center;
+  color: white;
+  animation: fadeIn 0.5s ease;
+}
+
+.check-phone-icon {
+  font-size: 48px;
+  margin-bottom: 10px;
+}
+
+.check-phone-text {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.check-phone-text strong {
+  font-size: 16px;
+  display: block;
+  margin-bottom: 8px;
+}

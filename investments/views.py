@@ -35,27 +35,86 @@ def extract_transaction_id(mpesa_message):
     if not mpesa_message:
         return None
     
-    # Pattern 1: "UF9KB719CK Confirmed" - Transaction ID at start
     txn_match = re.search(r'^([A-Z0-9]{8,12})\s+Confirmed', mpesa_message)
     if txn_match:
         return txn_match.group(1)
     
-    # Pattern 2: "TRANSACTION ID: XXXX" format
     txn_match = re.search(r'(?:Transaction|Txn)\s*ID:?\s*([A-Z0-9]{8,12})', mpesa_message, re.IGNORECASE)
     if txn_match:
         return txn_match.group(1)
     
-    # Pattern 3: Any 8-12 character alphanumeric at start
     txn_match = re.match(r'^([A-Z0-9]{8,12})', mpesa_message.strip())
     if txn_match:
         return txn_match.group(1)
     
-    # Pattern 4: Look for code like "RF9KB719CK" in the message
     txn_match = re.search(r'\b([A-Z0-9]{8,12})\b', mpesa_message)
     if txn_match:
         return txn_match.group(1)
     
     return None
+
+# ========== VALIDATE M-PESA MESSAGE (Merchant, Till, Amount) ==========
+def validate_mpesa_message(mpesa_message, expected_amount=None):
+    """Validate M-Pesa message for correct merchant, till number, and amount"""
+    if not mpesa_message:
+        return {'valid': False, 'error': 'No message provided'}
+    
+    # List of valid merchant names
+    valid_merchants = [
+        'MUTHONI MUTHOGA',
+        'BRIAN MOGIRE NYABUTO',
+        'DORCAS NJERI MWAI',
+        'MUTHONI',
+        'BRIAN MOGIRE',
+        'DORCAS NJERI'
+    ]
+    
+    # List of valid till numbers
+    valid_till_numbers = ['3469753', '9315062', '9307094']
+    
+    # Extract transaction ID
+    transaction_id = extract_transaction_id(mpesa_message)
+    
+    # Extract amount
+    amount_match = re.search(r'Ksh([\d,]+\.?\d*)', mpesa_message, re.IGNORECASE)
+    if not amount_match:
+        return {'valid': False, 'error': 'Could not find amount in the message. Please paste the full M-Pesa confirmation message.'}
+    
+    paid_amount = Decimal(amount_match.group(1).replace(',', ''))
+    
+    # Check if amount matches expected
+    if expected_amount and paid_amount != expected_amount:
+        return {'valid': False, 'error': f'Amount mismatch. Expected KES {expected_amount:,.0f}, but paid KES {paid_amount:,.0f}'}
+    
+    if paid_amount < 100:
+        return {'valid': False, 'error': f'Minimum deposit is KES 100. You paid KES {paid_amount:,.0f}'}
+    
+    # Check if paid to valid merchant
+    merchant_found = False
+    for merchant in valid_merchants:
+        if merchant.upper() in mpesa_message.upper():
+            merchant_found = True
+            break
+    
+    if not merchant_found:
+        return {'valid': False, 'error': f'Payment not made to an approved merchant. Please pay to: {", ".join(valid_merchants[:3])}'}
+    
+    # Check if paid to valid till number
+    till_found = False
+    for till in valid_till_numbers:
+        if till in mpesa_message:
+            till_found = True
+            break
+    
+    if not till_found:
+        return {'valid': False, 'error': f'Payment not made to an approved till number. Valid tills: {", ".join(valid_till_numbers)}'}
+    
+    return {
+        'valid': True,
+        'transaction_id': transaction_id,
+        'amount': paid_amount,
+        'message': 'Message validated successfully'
+    }
 
 # ========== TEST ENDPOINT ==========
 @api_view(['GET'])
@@ -82,7 +141,6 @@ def check_maintenance_status(request):
 def signup(request):
     """User signup - requires admin approval with referral tracking"""
     try:
-        # Maintenance check
         maint_msg = check_maintenance()
         if maint_msg:
             return Response({
@@ -183,7 +241,6 @@ def signup(request):
 def login_view(request):
     """User login - checks if user exists, approved, and account status"""
     try:
-        # ========== MAINTENANCE MODE CHECK - MUST BE FIRST ==========
         maint_msg = check_maintenance()
         if maint_msg:
             return Response({
@@ -274,7 +331,7 @@ def login_view(request):
         print(f"❌ Login error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== FORGOT PASSWORD - REQUEST RESET (USER REQUESTS) ==========
+# ========== FORGOT PASSWORD FUNCTIONS ==========
 @api_view(['POST'])
 def forgot_password_request(request):
     """User requests password reset - admin notified to generate link"""
@@ -299,22 +356,18 @@ def forgot_password_request(request):
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=404)
         
-        # Generate reset token
         reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
         
-        # Store reset token
         reset_request = PasswordReset.objects.create(
             user=user,
             code=reset_token,
             is_used=False
         )
         
-        # Update profile
         profile.requires_password_reset = True
         profile.reset_token = reset_token
         profile.save()
         
-        # Generate reset link
         reset_link = f"https://senti-invest.onrender.com/reset-password/{reset_token}/"
         
         print("\n" + "="*60)
@@ -343,7 +396,6 @@ def forgot_password_request(request):
         print(f"❌ Forgot password error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== CHECK RESET TOKEN VALIDITY ==========
 @api_view(['POST'])
 def check_reset_token(request):
     """Check if reset token is valid before showing reset form"""
@@ -374,10 +426,9 @@ def check_reset_token(request):
         print(f"❌ Check token error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== RESET PASSWORD WITH TOKEN ==========
 @api_view(['POST'])
 def reset_password_with_token(request):
-    """Reset password using token from link (no code needed)"""
+    """Reset password using token from link"""
     try:
         token = request.data.get('token')
         new_password = request.data.get('new_password')
@@ -407,15 +458,12 @@ def reset_password_with_token(request):
         
         user = reset.user
         
-        # Set new password
         user.set_password(new_password)
         user.save()
         
-        # Mark token as used
         reset.is_used = True
         reset.save()
         
-        # Clear reset flags from profile
         try:
             profile = UserProfile.objects.get(user=user)
             profile.requires_password_reset = False
@@ -435,7 +483,6 @@ def reset_password_with_token(request):
         print(f"❌ Reset password error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== ADMIN GENERATE RESET LINK ==========
 @api_view(['POST'])
 def admin_generate_reset_link(request):
     """Admin endpoint to generate password reset link for a user"""
@@ -478,11 +525,9 @@ def admin_generate_reset_link(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
-# ========== PASSWORD RESET PAGE (NO CODE - ADMIN INITIATED) ==========
 @csrf_protect
 def password_reset_page(request, token):
     """Page where user can set new password using admin-provided token"""
-    
     try:
         reset_request = PasswordReset.objects.get(code=token, is_used=False)
         
@@ -534,128 +579,10 @@ def password_reset_page(request, token):
     
     return render(request, 'password_reset.html', {'token': token})
 
-# ========== DEPOSIT FUNCTIONS ==========
-@api_view(['POST'])
-def request_mpesa_deposit(request):
-    """Initiate M-Pesa deposit - Requires admin approval with notification"""
-    # Maintenance check
-    maint_msg = check_maintenance()
-    if maint_msg:
-        return Response({
-            'error': maint_msg,
-            'maintenance': True,
-            'code': 'MAINTENANCE_MODE'
-        }, status=503)
-    
-    try:
-        user_id = request.data.get('user_id')
-        amount = request.data.get('amount')
-        phone_number = request.data.get('phone_number', '')
-        
-        print("\n" + "="*60)
-        print(f"💰 NEW DEPOSIT REQUEST")
-        print("="*60)
-        print(f"👤 User ID: {user_id}")
-        print(f"💵 Amount: KES {amount}")
-        print(f"📱 Phone: {phone_number}")
-        print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        print("="*60)
-        
-        if isinstance(amount, str):
-            amount = Decimal(amount)
-        else:
-            amount = Decimal(amount)
-        
-        if not amount or amount < 100:
-            return Response({'error': f'Minimum deposit is KES 100'}, status=400)
-        
-        if not phone_number:
-            return Response({'error': 'Phone number is required'}, status=400)
-        
-        try:
-            user = User.objects.get(id=user_id)
-            profile = UserProfile.objects.get(user=user)
-            
-            if not profile.is_approved:
-                return Response({'error': 'Account not approved yet. Please wait for admin approval.'}, status=403)
-            
-            if profile.account_status in ['banned', 'frozen']:
-                return Response({'error': f'Your account is {profile.account_status}. Cannot process deposit.'}, status=403)
-                
-        except User.DoesNotExist:
-            return Response({'error': 'User not found'}, status=404)
-        except UserProfile.DoesNotExist:
-            return Response({'error': 'Profile not found'}, status=404)
-        
-        if phone_number.startswith('0'):
-            formatted_phone = '254' + phone_number[1:]
-        elif phone_number.startswith('+'):
-            formatted_phone = phone_number[1:]
-        else:
-            formatted_phone = phone_number
-        
-        transaction_id = str(uuid.uuid4())[:8].upper()
-        
-        deposit = Deposit.objects.create(
-            user=user,
-            amount=amount,
-            transaction_id=transaction_id,
-            phone_number=phone_number,
-            status='pending',
-            verification_status='pending'
-        )
-        
-        print("\n" + "="*60)
-        print("⚠️ ADMIN ACTION REQUIRED - DEPOSIT PENDING!")
-        print("="*60)
-        print(f"💰 Deposit Request:")
-        print(f"   👤 User: {user.username} ({profile.full_name or 'No name'})")
-        print(f"   💵 Amount: KES {amount:,.0f}")
-        print(f"   📱 Phone: {phone_number}")
-        print(f"   🆔 Transaction ID: {transaction_id}")
-        print("="*60)
-        print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/deposit/")
-        print("="*60 + "\n")
-        
-        return Response({
-            'success': True,
-            'message': f'Deposit request of KES {amount:,.0f} submitted for admin approval.',
-            'transaction_id': transaction_id,
-            'pending': True
-        })
-        
-    except Exception as e:
-        print(f"❌ Error in deposit: {str(e)}")
-        return Response({'error': str(e)}, status=500)
-
-@api_view(['POST'])
-def verify_mpesa_payment(request):
-    """Verify M-Pesa payment status"""
-    transaction_id = request.data.get('transaction_id')
-    
-    try:
-        deposit = Deposit.objects.get(transaction_id=transaction_id)
-        return Response({
-            'status': deposit.status,
-            'verification_status': deposit.verification_status,
-            'amount': float(deposit.amount),
-            'message': 'Payment verified' if deposit.status == 'approved' else 'Payment pending approval'
-        })
-    except Deposit.DoesNotExist:
-        return Response({'error': 'Transaction not found'}, status=404)
-
+# ========== MANUAL PAYMENT VERIFICATION (LEGACY - KEEP FOR COMPATIBILITY) ==========
 @api_view(['POST'])
 def verify_manual_payment(request):
-    """Verify manual M-Pesa payment by parsing the SMS message"""
-    # Maintenance check
-    maint_msg = check_maintenance()
-    if maint_msg:
-        return Response({
-            'error': maint_msg,
-            'maintenance': True,
-            'code': 'MAINTENANCE_MODE'
-        }, status=503)
-    
+    """Verify manual M-Pesa payment by parsing the SMS message - LEGACY ENDPOINT"""
     try:
         user_id = request.data.get('user_id')
         amount = request.data.get('amount')
@@ -663,83 +590,51 @@ def verify_manual_payment(request):
         mpesa_message = request.data.get('mpesa_message', '')
         
         print("\n" + "="*60)
-        print(f"📱 MANUAL PAYMENT VERIFICATION")
+        print(f"📱 MANUAL PAYMENT VERIFICATION (LEGACY)")
         print("="*60)
         print(f"👤 User ID: {user_id}")
         print(f"💵 Amount: KES {amount}")
         print(f"📱 Phone: {phone_number}")
-        print(f"📝 Message: {mpesa_message[:100]}...")
+        print(f"📝 Message: {mpesa_message[:100] if mpesa_message else 'None'}...")
         print("="*60)
         
         if not mpesa_message:
             return Response({'error': 'Please paste your M-Pesa message'}, status=400)
         
-        try:
-            profile = UserProfile.objects.get(user_id=user_id)
-            if profile.account_status in ['banned', 'frozen']:
-                return Response({
-                    'error': f'Your account is {profile.account_status}. Please contact admin for assistance.'
-                }, status=403)
-        except UserProfile.DoesNotExist:
-            pass
-        
         txn_match = re.search(r'^([A-Z0-9]+) Confirmed', mpesa_message)
         if not txn_match:
-            return Response({'error': 'Could not find transaction ID in the message. Please paste the full M-Pesa confirmation message.'}, status=400)
+            return Response({'error': 'Could not find transaction ID in the message.'}, status=400)
         transaction_id = txn_match.group(1)
         
-        if Deposit.objects.filter(transaction_id=transaction_id).exists():
-            return Response({'error': 'This transaction has already been used. Please check your deposit history.'}, status=400)
-        
-        amount_match = re.search(r'Ksh([\d,]+\.?\d*)', mpesa_message)
+        amount_match = re.search(r'Ksh([\d,]+\.?\d*)', mpesa_message, re.IGNORECASE)
         if not amount_match:
-            return Response({'error': 'Could not find amount in the message. Please paste the full M-Pesa confirmation message.'}, status=400)
+            return Response({'error': 'Could not find amount in the message.'}, status=400)
         extracted_amount = Decimal(amount_match.group(1).replace(',', ''))
         
-        amount = extracted_amount
-        
-        if amount < 100:
-            return Response({'error': f'Minimum deposit is KES 100. You paid KES {amount}'}, status=400)
+        if extracted_amount < 100:
+            return Response({'error': f'Minimum deposit is KES 100. You paid KES {extracted_amount}'}, status=400)
         
         user = User.objects.get(id=user_id)
+        
+        # Check if transaction ID already exists
+        if Deposit.objects.filter(transaction_id=transaction_id).exists():
+            return Response({'error': 'This transaction ID has already been used.'}, status=400)
+        
         deposit = Deposit.objects.create(
             user=user,
-            amount=amount,
+            amount=extracted_amount,
             transaction_id=transaction_id,
             phone_number=phone_number,
             mpesa_message=mpesa_message,
-            verification_status='pending',
+            verification_status='pending_approval',
             status='pending'
         )
         
-        wallet, created = Wallet.objects.get_or_create(user=user, defaults={
-            'balance': 0,
-            'total_deposited': 0,
-            'total_withdrawn': 0,
-            'total_earned': 0,
-            'total_invested': 0
-        })
-        wallet.balance += amount
-        wallet.total_deposited += amount
-        wallet.save()
-        
-        update_referral_status(user)
-        
-        FraudLog.objects.create(
-            user=user,
-            action='deposit_verified',
-            amount=amount,
-            reason=f'Manual deposit via SMS verification. Transaction: {transaction_id}',
-            performed_by='system'
-        )
-        
-        print(f"✅ Manual payment recorded: {user.username} - KES {amount}")
-        print(f"⚠️ Pending admin verification - Transaction ID: {transaction_id}")
+        print(f"✅ Manual payment recorded (legacy): {user.username} - KES {extracted_amount}")
         
         return Response({
             'success': True,
-            'message': f'Payment of KES {amount:,.0f} recorded! Funds are available now. Admin will verify within 24-48 hours.',
-            'new_balance': float(wallet.balance),
+            'message': f'Payment of KES {extracted_amount:,.0f} recorded! Admin will verify.',
             'transaction_id': transaction_id,
             'pending_verification': True
         })
@@ -750,12 +645,11 @@ def verify_manual_payment(request):
         print(f"❌ Manual payment error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-# ========== SUBMIT DEPOSIT REQUEST (User submits for admin approval) ==========
+# ========== NEW DEPOSIT SYSTEM (Step 1: Submit Request) ==========
 @api_view(['POST'])
 def submit_deposit_request(request):
-    """User submits a deposit request for admin approval - NO money added until admin approves"""
+    """Step 1: User submits deposit request - NO money added until admin approves"""
     try:
-        # Maintenance check
         maint_msg = check_maintenance()
         if maint_msg:
             return Response({
@@ -767,15 +661,13 @@ def submit_deposit_request(request):
         user_id = request.data.get('user_id')
         amount = request.data.get('amount')
         phone_number = request.data.get('phone_number', '')
-        mpesa_message = request.data.get('mpesa_message', '')
         
         print("\n" + "="*60)
-        print(f"📝 NEW DEPOSIT REQUEST (AWAITING ADMIN APPROVAL)")
+        print(f"📝 STEP 1: DEPOSIT REQUEST SUBMITTED")
         print("="*60)
         print(f"👤 User ID: {user_id}")
         print(f"💵 Amount: KES {amount}")
         print(f"📱 Phone: {phone_number}")
-        print(f"📝 Message: {mpesa_message[:100] if mpesa_message else 'No message'}...")
         print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print("="*60)
         
@@ -786,6 +678,9 @@ def submit_deposit_request(request):
         
         if amount < 100:
             return Response({'error': f'Minimum deposit is KES 100'}, status=400)
+        
+        if not phone_number or len(phone_number) < 10:
+            return Response({'error': 'Please enter a valid M-Pesa phone number'}, status=400)
         
         try:
             user = User.objects.get(id=user_id)
@@ -802,48 +697,25 @@ def submit_deposit_request(request):
         except UserProfile.DoesNotExist:
             return Response({'error': 'Profile not found'}, status=404)
         
-        # ========== EXTRACT REAL TRANSACTION ID FROM M-PESA MESSAGE ==========
-        transaction_id = extract_transaction_id(mpesa_message)
+        # Create deposit request with pending_approval status
+        request_id = str(uuid.uuid4())[:8].upper()
         
-        # If no transaction ID found, generate a random one as fallback (but warn)
-        if not transaction_id:
-            transaction_id = str(uuid.uuid4())[:8].upper()
-            print(f"⚠️ Could not extract transaction ID from message, generated: {transaction_id}")
-        else:
-            print(f"✅ Extracted Transaction ID: {transaction_id}")
-        
-        # Check if transaction ID already exists (prevent duplicate)
-        if Deposit.objects.filter(transaction_id=transaction_id).exists():
-            return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
-        
-        # Create deposit with extracted transaction ID - NO money added yet
         deposit = Deposit.objects.create(
             user=user,
             amount=amount,
-            transaction_id=transaction_id,
+            transaction_id=request_id,
             phone_number=phone_number,
-            mpesa_message=mpesa_message,
-            verification_status='pending_approval',  # Waiting for admin approval
+            verification_status='pending_approval',
             status='pending'
         )
         
-        print("\n" + "="*60)
-        print("⚠️ ADMIN ACTION REQUIRED - DEPOSIT REQUEST PENDING APPROVAL!")
-        print("="*60)
-        print(f"💰 Deposit Request:")
-        print(f"   👤 User: {user.username} ({profile.full_name or 'No name'})")
-        print(f"   💵 Amount: KES {amount:,.0f}")
-        print(f"   📱 Phone: {phone_number}")
-        print(f"   🆔 Transaction ID: {transaction_id}")
-        print(f"   📝 Message: {mpesa_message[:200] if mpesa_message else 'No message'}")
-        print("="*60)
-        print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/deposit/")
-        print("="*60 + "\n")
+        print(f"✅ Deposit request created: {user.username} - KES {amount:,.0f} - Request ID: {request_id}")
         
         return Response({
             'success': True,
-            'message': f'✅ Deposit request of KES {amount:,.0f} submitted for admin approval. Transaction ID: {transaction_id}',
-            'transaction_id': transaction_id,
+            'message': f'✅ Deposit request of KES {amount:,.0f} submitted. Check your phone to complete the M-PESA transaction, then paste the confirmation message.',
+            'request_id': request_id,
+            'amount': float(amount),
             'pending_approval': True
         })
         
@@ -852,7 +724,88 @@ def submit_deposit_request(request):
         return Response({'error': str(e)}, status=500)
 
 
-# ========== CHECK DEPOSIT STATUS (User checks if approved) ==========
+# ========== NEW DEPOSIT SYSTEM (Step 2: Verify Payment) ==========
+@api_view(['POST'])
+def verify_deposit_payment(request):
+    """Step 2: User pastes M-Pesa message - validates and updates deposit (NO money added yet)"""
+    try:
+        maint_msg = check_maintenance()
+        if maint_msg:
+            return Response({
+                'error': maint_msg,
+                'maintenance': True,
+                'code': 'MAINTENANCE_MODE'
+            }, status=503)
+        
+        user_id = request.data.get('user_id')
+        mpesa_message = request.data.get('mpesa_message', '')
+        
+        print("\n" + "="*60)
+        print(f"📝 STEP 2: DEPOSIT VERIFICATION")
+        print("="*60)
+        print(f"👤 User ID: {user_id}")
+        print(f"📝 Message: {mpesa_message[:100] if mpesa_message else 'No message'}...")
+        print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("="*60)
+        
+        if not user_id:
+            return Response({'error': 'User ID required'}, status=400)
+        
+        if not mpesa_message or len(mpesa_message) < 20:
+            return Response({'error': 'Please paste your full M-Pesa confirmation message'}, status=400)
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=404)
+        
+        # Get the most recent pending deposit request for this user
+        pending_deposit = Deposit.objects.filter(
+            user=user,
+            verification_status='pending_approval',
+            status='pending'
+        ).order_by('-created_at').first()
+        
+        if not pending_deposit:
+            return Response({'error': 'No pending deposit request found. Please submit a deposit request first.'}, status=404)
+        
+        # Validate the M-Pesa message
+        validation = validate_mpesa_message(mpesa_message, pending_deposit.amount)
+        
+        if not validation['valid']:
+            print(f"❌ Message validation failed: {validation['error']}")
+            return Response({'error': validation['error']}, status=400)
+        
+        # Extract transaction ID from message
+        real_transaction_id = validation['transaction_id']
+        
+        # Check if transaction ID already used
+        if Deposit.objects.filter(transaction_id=real_transaction_id).exists():
+            return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
+        
+        # Update the deposit record with the message and real transaction ID
+        pending_deposit.mpesa_message = mpesa_message
+        pending_deposit.transaction_id = real_transaction_id
+        pending_deposit.verification_status = 'pending_admin_approval'
+        pending_deposit.save()
+        
+        print(f"✅ Deposit verified: {user.username} - KES {pending_deposit.amount:,.0f} - Waiting for admin approval")
+        
+        return Response({
+            'success': True,
+            'message': f'✅ Your M-Pesa payment has been recorded. Admin will review and approve your deposit. Funds will appear in your wallet after approval.',
+            'deposit_id': pending_deposit.id,
+            'amount': float(pending_deposit.amount),
+            'transaction_id': real_transaction_id,
+            'pending_admin_approval': True
+        })
+        
+    except Exception as e:
+        print(f"❌ Verify deposit error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== CHECK DEPOSIT STATUS ==========
 @api_view(['GET'])
 def check_deposit_status(request):
     """User checks if their deposit has been approved by admin"""
@@ -872,6 +825,8 @@ def check_deposit_status(request):
         if deposit.verification_status == 'approved':
             status_message = '✅ Deposit approved! Money has been added to your wallet.'
         elif deposit.verification_status == 'pending_approval':
+            status_message = '⏳ Please complete your M-Pesa transaction and paste the confirmation message.'
+        elif deposit.verification_status == 'pending_admin_approval':
             status_message = '⏳ Deposit pending admin approval. Check back shortly.'
         elif deposit.verification_status == 'rejected':
             status_message = f'❌ Deposit rejected. Reason: {deposit.rejection_reason or "Contact admin for details."}'
@@ -888,12 +843,11 @@ def check_deposit_status(request):
         return Response({'error': str(e)}, status=500)
 
 
-# ========== ADMIN APPROVE DEPOSIT (Admin approves, THEN money is added) ==========
+# ========== ADMIN APPROVE DEPOSIT ==========
 @api_view(['POST'])
 def admin_approve_deposit(request):
     """Admin approves a deposit - ONLY THEN money is added to wallet"""
     try:
-        # Admin authentication
         admin_key = request.headers.get('X-Admin-Key')
         if admin_key != 'your-secret-admin-key':
             return Response({'error': 'Unauthorized'}, status=401)
@@ -908,24 +862,20 @@ def admin_approve_deposit(request):
         except Deposit.DoesNotExist:
             return Response({'error': 'Deposit not found'}, status=404)
         
-        # Only process if pending approval
-        if deposit.verification_status != 'pending_approval':
+        if deposit.verification_status != 'pending_admin_approval':
             return Response({'error': f'Deposit already {deposit.verification_status}. Cannot approve again.'}, status=400)
         
-        # Add money to wallet ONLY when admin approves
         wallet, created = Wallet.objects.get_or_create(user=deposit.user)
         wallet.balance += deposit.amount
         wallet.total_deposited += deposit.amount
         wallet.save()
         
-        # Update deposit status
         deposit.verification_status = 'approved'
         deposit.status = 'approved'
         deposit.approved_at = timezone.now()
         deposit.approved_by = request.data.get('approved_by', 'admin')
         deposit.save()
         
-        # Log the approval
         FraudLog.objects.create(
             user=deposit.user,
             action='deposit_verified',
@@ -947,12 +897,11 @@ def admin_approve_deposit(request):
         return Response({'error': str(e)}, status=500)
 
 
-# ========== ADMIN REJECT DEPOSIT (Admin rejects - NO money added) ==========
+# ========== ADMIN REJECT DEPOSIT ==========
 @api_view(['POST'])
 def admin_reject_deposit(request):
-    """Admin rejects a deposit - NO money is added to wallet"""
+    """Admin rejects a deposit - NO money added to wallet"""
     try:
-        # Admin authentication
         admin_key = request.headers.get('X-Admin-Key')
         if admin_key != 'your-secret-admin-key':
             return Response({'error': 'Unauthorized'}, status=401)
@@ -968,17 +917,26 @@ def admin_reject_deposit(request):
         except Deposit.DoesNotExist:
             return Response({'error': 'Deposit not found'}, status=404)
         
-        # Only process if pending approval
-        if deposit.verification_status != 'pending_approval':
-            return Response({'error': f'Deposit already {deposit.verification_status}. Cannot reject again.'}, status=400)
+        if deposit.verification_status == 'approved':
+            try:
+                wallet = Wallet.objects.get(user=deposit.user)
+                if wallet.balance >= deposit.amount:
+                    wallet.balance -= deposit.amount
+                    wallet.total_deposited -= deposit.amount
+                    wallet.save()
+                    deduct_message = f' KES {deposit.amount:,.0f} deducted from user balance.'
+                else:
+                    deduct_message = f' WARNING: Insufficient balance to deduct full amount.'
+            except Wallet.DoesNotExist:
+                deduct_message = ' Wallet not found. Manual adjustment needed.'
+        else:
+            deduct_message = ' No money was added to wallet.'
         
-        # DO NOT add money to wallet
         deposit.verification_status = 'rejected'
         deposit.status = 'rejected'
         deposit.rejection_reason = reason
         deposit.save()
         
-        # Log the rejection
         FraudLog.objects.create(
             user=deposit.user,
             action='deposit_rejected',
@@ -987,11 +945,11 @@ def admin_reject_deposit(request):
             performed_by=request.data.get('rejected_by', 'admin')
         )
         
-        print(f"❌ DEPOSIT REJECTED: {deposit.user.username} - KES {deposit.amount:,.0f} (No money added)")
+        print(f"❌ DEPOSIT REJECTED: {deposit.user.username} - KES {deposit.amount:,.0f}")
         
         return Response({
             'success': True,
-            'message': f'❌ Deposit of KES {deposit.amount:,.0f} rejected. No money added to wallet.',
+            'message': f'❌ Deposit rejected.{deduct_message}',
             'reason': reason
         })
         
@@ -1009,7 +967,9 @@ def admin_get_pending_deposits(request):
         if admin_key != 'your-secret-admin-key':
             return Response({'error': 'Unauthorized'}, status=401)
         
-        pending_deposits = Deposit.objects.filter(verification_status='pending_approval').order_by('-created_at')
+        pending_deposits = Deposit.objects.filter(
+            verification_status='pending_admin_approval'
+        ).order_by('-created_at')
         
         data = []
         for deposit in pending_deposits:
@@ -1033,6 +993,53 @@ def admin_get_pending_deposits(request):
     except Exception as e:
         print(f"❌ Get pending deposits error: {str(e)}")
         return Response({'error': str(e)}, status=500)
+
+
+# ========== ADMIN GET ALL WALLETS ==========
+@api_view(['GET'])
+def admin_get_all_wallets(request):
+    """Admin can view all user wallets"""
+    try:
+        admin_key = request.headers.get('X-Admin-Key')
+        if admin_key != 'your-secret-admin-key':
+            return Response({'error': 'Unauthorized'}, status=401)
+        
+        wallets = Wallet.objects.select_related('user').all().order_by('-balance')
+        
+        data = []
+        for wallet in wallets:
+            data.append({
+                'user_id': wallet.user.id,
+                'username': wallet.user.username,
+                'phone': wallet.user.profile.phone_number if hasattr(wallet.user, 'profile') else '',
+                'balance': float(wallet.balance),
+                'total_deposited': float(wallet.total_deposited),
+                'total_withdrawn': float(wallet.total_withdrawn),
+                'total_earned': float(wallet.total_earned),
+                'total_invested': float(wallet.total_invested)
+            })
+        
+        return Response({
+            'success': True,
+            'wallets': data,
+            'count': len(data)
+        })
+        
+    except Exception as e:
+        print(f"❌ Get all wallets error: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+
+# ========== LEGACY DEPOSIT FUNCTIONS (Keep for compatibility) ==========
+@api_view(['POST'])
+def request_mpesa_deposit(request):
+    """Legacy deposit endpoint"""
+    return Response({'error': 'Please use the new deposit system'}, status=400)
+
+@api_view(['POST'])
+def verify_mpesa_payment(request):
+    """Legacy verify endpoint"""
+    return Response({'error': 'Please use the new deposit system'}, status=400)
 
 # ========== ACCOUNT STATUS FUNCTIONS ==========
 @api_view(['GET'])
@@ -1127,27 +1134,9 @@ def get_products(request):
 @api_view(['POST'])
 def invest_product(request):
     """Invest in a product"""
-    # Maintenance check
-    maint_msg = check_maintenance()
-    if maint_msg:
-        return Response({
-            'error': maint_msg,
-            'maintenance': True,
-            'code': 'MAINTENANCE_MODE'
-        }, status=503)
-    
     user_id = request.data.get('user_id')
     product_id = request.data.get('product_id')
     amount = Decimal(str(request.data.get('amount', 0)))
-    
-    print("\n" + "="*60)
-    print(f"📈 NEW INVESTMENT")
-    print("="*60)
-    print(f"👤 User ID: {user_id}")
-    print(f"📦 Product ID: {product_id}")
-    print(f"💵 Amount: KES {amount}")
-    print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*60)
     
     try:
         user = User.objects.get(id=user_id)
@@ -1189,9 +1178,6 @@ def invest_product(request):
     
     update_referral_status(user)
     
-    print(f"✅ Investment successful! New balance: KES {wallet.balance:,.0f}")
-    print(f"📊 Investment ID: {investment.id}, Expires: {expiry}")
-    
     return Response({
         'success': True,
         'investment_id': investment.id,
@@ -1205,8 +1191,6 @@ def get_user_investments(request):
     """Get user's active investments"""
     user_id = request.GET.get('user_id')
     
-    print(f"📊 Getting investments for user: {user_id}")
-    
     try:
         user = User.objects.get(id=user_id)
         now = timezone.now()
@@ -1217,12 +1201,9 @@ def get_user_investments(request):
             expiry_date__gt=now
         ).select_related('product')
         
-        print(f"Found {investments.count()} active investments")
-        
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
-        print(f"Error: {str(e)}")
         return Response({'error': str(e)}, status=500)
     
     data = []
@@ -1251,8 +1232,6 @@ def get_user_investments(request):
             'duration_days': inv.product.duration_days
         })
     
-    print(f"Returning {len(data)} investments, total daily: KES {float(total_daily):,.2f}")
-    
     return Response({
         'success': True,
         'investments': data,
@@ -1263,27 +1242,9 @@ def get_user_investments(request):
 @api_view(['POST'])
 def request_withdrawal(request):
     """Request a withdrawal with admin notification - Minimum 300 KES"""
-    # Maintenance check
-    maint_msg = check_maintenance()
-    if maint_msg:
-        return Response({
-            'error': maint_msg,
-            'maintenance': True,
-            'code': 'MAINTENANCE_MODE'
-        }, status=503)
-    
     user_id = request.data.get('user_id')
     amount = Decimal(str(request.data.get('amount', 0)))
     phone_number = request.data.get('phone_number')
-    
-    print("\n" + "="*60)
-    print(f"💸 NEW WITHDRAWAL REQUEST")
-    print("="*60)
-    print(f"👤 User ID: {user_id}")
-    print(f"💵 Amount: KES {amount}")
-    print(f"📱 Phone: {phone_number}")
-    print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("="*60)
     
     try:
         wallet = Wallet.objects.get(user_id=user_id)
@@ -1317,19 +1278,6 @@ def request_withdrawal(request):
         status='pending'
     )
     
-    print("\n" + "="*60)
-    print("⚠️ ADMIN ACTION REQUIRED - WITHDRAWAL PENDING!")
-    print("="*60)
-    print(f"💸 Withdrawal Request:")
-    print(f"   👤 User: {user.username} ({profile.full_name or 'No name'})")
-    print(f"   💵 Amount: KES {amount:,.0f}")
-    print(f"   📱 Phone: {phone_number}")
-    print(f"   🆔 Withdrawal ID: {withdrawal.id}")
-    print(f"   💰 New Balance: KES {wallet.balance:,.0f}")
-    print("="*60)
-    print(f"🔗 Approve here: https://senti-invest.onrender.com/admin/investments/withdrawal/")
-    print("="*60 + "\n")
-    
     return Response({
         'success': True,
         'withdrawal_id': withdrawal.id,
@@ -1342,8 +1290,6 @@ def request_withdrawal(request):
 def get_wallet(request):
     """Get wallet details"""
     user_id = request.GET.get('user_id')
-    
-    print(f"💰 Getting wallet for user: {user_id}")
     
     try:
         wallet = Wallet.objects.get(user_id=user_id)
@@ -1374,12 +1320,11 @@ def get_wallet(request):
             'total_earned': 0
         })
     except Exception as e:
-        print(f"❌ Wallet error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
 @api_view(['GET'])
 def get_withdrawal_history(request):
-    """Get user's complete withdrawal history (all statuses)"""
+    """Get user's complete withdrawal history"""
     user_id = request.GET.get('user_id')
     
     try:
@@ -1405,7 +1350,6 @@ def get_withdrawal_history(request):
     except User.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
-        print(f"❌ Withdrawal history error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
 # ========== REFERRAL STATUS UPDATE FUNCTIONS ==========
@@ -1569,24 +1513,18 @@ def get_bonus_history(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
         
-# ========== FIXED DAILY EARNINGS - USES NAIROBI TIMEZONE ==========
+# ========== DAILY EARNINGS API ==========
 @api_view(['GET', 'POST'])
 def process_daily_earnings_api(request):
-    """API endpoint to trigger daily earnings - USES NAIROBI TIMEZONE for ALL users"""
+    """API endpoint to trigger daily earnings"""
     print("\n" + "="*60)
     print(f"🔄 DAILY EARNINGS PROCESSING STARTED")
     print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("="*60)
     
-    # IMPORTANT: Use Africa/Nairobi timezone for correct date
-    from django.utils import timezone
     now = timezone.localtime(timezone.now())
     today = now.date()
     
-    print(f"📅 Nairobi date: {today}")
-    print(f"⏰ Nairobi time: {now.strftime('%H:%M:%S')}")
-    
-    # Only get active investments from users who are NOT frozen or banned
     active_investments = UserInvestment.objects.filter(
         status='active', 
         expiry_date__gt=timezone.now(),
@@ -1599,26 +1537,21 @@ def process_daily_earnings_api(request):
     users_affected = set()
     skipped_frozen = 0
     
-    print(f"📊 Found {active_investments.count()} active investments from active users")
-    
     for investment in active_investments:
-        # Check if already earned today in NAIROBI timezone
         already_earned_today = False
         if investment.last_earning_date:
-            # Convert last_earning_date to Nairobi timezone for comparison
             last_earning_local = timezone.localtime(investment.last_earning_date)
             if last_earning_local.date() == today:
                 already_earned_today = True
         
         if already_earned_today:
-            print(f"⏭️ Skipping {investment.user.username} - Already earned today in Nairobi time")
             continue
         
         daily_earnings = investment.product.daily_earnings_amount if investment.product.daily_earnings_amount else Decimal('0')
         
         if daily_earnings > 0:
             investment.total_earned += daily_earnings
-            investment.last_earning_date = timezone.now()  # Store in UTC
+            investment.last_earning_date = timezone.now()
             investment.save()
             
             try:
@@ -1631,7 +1564,7 @@ def process_daily_earnings_api(request):
                 processed += 1
                 users_affected.add(investment.user.id)
                 
-                print(f"✅ {investment.user.username} earned KES {daily_earnings:,.2f} from {investment.product.name}")
+                print(f"✅ {investment.user.username} earned KES {daily_earnings:,.2f}")
                 
             except Wallet.DoesNotExist:
                 print(f"❌ No wallet found for {investment.user.username}")
@@ -1639,24 +1572,13 @@ def process_daily_earnings_api(request):
         if investment.expiry_date <= timezone.now():
             investment.status = 'completed'
             investment.save()
-            print(f"🎉 Investment completed: {investment.product.name} for {investment.user.username}")
     
     if processed > 0:
-        log = DailyEarningsLog.objects.create(
+        DailyEarningsLog.objects.create(
             total_earnings=total_earnings,
             users_affected=len(users_affected),
             investments_processed=processed
         )
-    
-    print("\n" + "="*60)
-    print("📊 DAILY EARNINGS SUMMARY")
-    print("="*60)
-    print(f"   📅 Date (Nairobi): {today}")
-    print(f"   ✅ Investments processed: {processed}")
-    print(f"   👥 Users affected: {len(users_affected)}")
-    print(f"   💰 Total earnings distributed: KES {total_earnings:,.2f}")
-    print(f"   ⏭️ Skipped (frozen/banned): {skipped_frozen}")
-    print("="*60)
     
     return Response({
         'success': True,
@@ -1922,15 +1844,6 @@ def claim_bonus(request):
 @api_view(['POST'])
 def upgrade_investment(request):
     """Upgrade an existing investment to a higher product"""
-    # Maintenance check
-    maint_msg = check_maintenance()
-    if maint_msg:
-        return Response({
-            'error': maint_msg,
-            'maintenance': True,
-            'code': 'MAINTENANCE_MODE'
-        }, status=503)
-    
     try:
         user_id = request.data.get('user_id')
         investment_id = request.data.get('investment_id')

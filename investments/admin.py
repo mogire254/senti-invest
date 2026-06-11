@@ -199,7 +199,6 @@ class CustomUserAdmin(UserAdmin):
     delete_selected_users.short_description = "🗑️ Delete selected users"
     
     def force_password_reset(self, request, queryset):
-        """Force password reset for selected users - generates reset link"""
         for user in queryset:
             if hasattr(user, 'profile'):
                 reset_token = str(uuid.uuid4()) + str(uuid.uuid4())
@@ -435,36 +434,34 @@ class UserInvestmentAdmin(admin.ModelAdmin):
         self.message_user(request, f"🔄 {count} investments cancelled and refunded!")
     cancel_investments.short_description = "Cancel selected investments (refund to wallet)"
 
-# ========== DEPOSIT ADMIN - WITH WORKING REJECT ACTION ==========
+# ========== DEPOSIT ADMIN - UPDATED FOR NEW DEPOSIT SYSTEM ==========
 @admin.register(Deposit)
 class DepositAdmin(admin.ModelAdmin):
     list_display = ('user', 'amount_display', 'transaction_id', 'verification_status', 'status', 'created_at')
     list_filter = ('verification_status', 'status', 'created_at')
     search_fields = ('user__username', 'transaction_id')
-    actions = ['approve_selected_deposits', 'reject_selected_deposits']
+    actions = ['approve_deposits_action', 'reject_deposits_action']
     
     def amount_display(self, obj):
         return f"KES {int(obj.amount):,}" if obj.amount else "KES 0"
     amount_display.short_description = '💰 Amount'
     
-    def approve_selected_deposits(self, request, queryset):
+    def approve_deposits_action(self, request, queryset):
         """Approve selected deposits - ADD MONEY to user wallet"""
         approved_count = 0
-        for deposit in queryset.filter(verification_status='pending_approval'):
+        for deposit in queryset.filter(verification_status='pending_admin_approval'):
             # Add money to wallet
             wallet, created = Wallet.objects.get_or_create(user=deposit.user)
             wallet.balance += deposit.amount
             wallet.total_deposited += deposit.amount
             wallet.save()
             
-            # Update deposit status
             deposit.verification_status = 'approved'
             deposit.status = 'approved'
             deposit.approved_at = timezone.now()
             deposit.approved_by = request.user.username
             deposit.save()
             
-            # Log the approval
             FraudLog.objects.create(
                 user=deposit.user,
                 action='deposit_verified',
@@ -476,22 +473,35 @@ class DepositAdmin(admin.ModelAdmin):
             self.message_user(request, f"✅ Deposit of KES {deposit.amount} approved for {deposit.user.username} - Money added to wallet", messages.SUCCESS)
         
         if approved_count == 0:
-            self.message_user(request, f"ℹ️ No pending deposits selected. Only deposits with 'pending_approval' status can be approved.", messages.INFO)
+            self.message_user(request, f"ℹ️ No deposits pending admin approval selected. Only deposits with 'pending_admin_approval' status can be approved.", messages.INFO)
         else:
             self.message_user(request, f"✅ {approved_count} deposit(s) approved successfully!", messages.SUCCESS)
-    approve_selected_deposits.short_description = "✅ Approve selected deposits (ADD MONEY to wallet)"
+    approve_deposits_action.short_description = "✅ Approve selected deposits (ADD MONEY to wallet)"
     
-    def reject_selected_deposits(self, request, queryset):
-        """Reject selected deposits - NO MONEY added to wallet"""
+    def reject_deposits_action(self, request, queryset):
+        """Reject selected deposits - NO MONEY added to wallet (or deduct if already approved)"""
         rejected_count = 0
-        for deposit in queryset.filter(verification_status='pending_approval'):
-            # DO NOT add money to wallet - just mark as rejected
+        for deposit in queryset:
+            # If deposit was already approved, deduct the amount
+            if deposit.verification_status == 'approved':
+                try:
+                    wallet = Wallet.objects.get(user=deposit.user)
+                    if wallet.balance >= deposit.amount:
+                        wallet.balance -= deposit.amount
+                        wallet.total_deposited -= deposit.amount
+                        wallet.save()
+                        self.message_user(request, f"💰 Reversed KES {deposit.amount} from {deposit.user.username}'s wallet", messages.WARNING)
+                    else:
+                        self.message_user(request, f"⚠️ Insufficient balance to deduct KES {deposit.amount} from {deposit.user.username}", messages.ERROR)
+                except Wallet.DoesNotExist:
+                    pass
+            
+            # Update deposit status to rejected
             deposit.verification_status = 'rejected'
             deposit.status = 'rejected'
             deposit.rejection_reason = f'Rejected by admin {request.user.username}'
             deposit.save()
             
-            # Log the rejection
             FraudLog.objects.create(
                 user=deposit.user,
                 action='deposit_rejected',
@@ -500,13 +510,10 @@ class DepositAdmin(admin.ModelAdmin):
                 performed_by=request.user.username
             )
             rejected_count += 1
-            self.message_user(request, f"❌ Deposit of KES {deposit.amount} REJECTED for {deposit.user.username} - No money added", messages.WARNING)
+            self.message_user(request, f"❌ Deposit of KES {deposit.amount} REJECTED for {deposit.user.username}", messages.WARNING)
         
-        if rejected_count == 0:
-            self.message_user(request, f"ℹ️ No pending deposits selected. Only deposits with 'pending_approval' status can be rejected.", messages.INFO)
-        else:
-            self.message_user(request, f"❌ {rejected_count} deposit(s) rejected successfully! No money was added to user wallets.", messages.WARNING)
-    reject_selected_deposits.short_description = "❌ Reject selected deposits (NO money added)"
+        self.message_user(request, f"❌ {rejected_count} deposit(s) rejected!", messages.WARNING)
+    reject_deposits_action.short_description = "❌ Reject selected deposits (NO money added or deduct if approved)"
 
 # ========== WITHDRAWAL ADMIN ==========
 @admin.register(Withdrawal)
@@ -602,17 +609,6 @@ class ReferralAdmin(admin.ModelAdmin):
     list_display = ('referrer', 'referred_user', 'has_deposited', 'has_invested', 'bonus_given', 'created_at')
     list_filter = ('has_deposited', 'has_invested', 'bonus_given', 'created_at')
     search_fields = ('referrer__username', 'referred_user__username')
-    
-    def get_qualified_status(self, obj):
-        if obj.has_deposited and obj.has_invested and not obj.bonus_given:
-            return "✅ QUALIFIED"
-        elif obj.has_deposited and obj.has_invested:
-            return "💰 Invested (Bonus Given)"
-        elif obj.has_deposited:
-            return "🏦 Deposited Only"
-        else:
-            return "⏳ Pending"
-    get_qualified_status.short_description = 'Status'
 
 @admin.register(ReferralBonus)
 class ReferralBonusAdmin(admin.ModelAdmin):
@@ -695,7 +691,6 @@ class MaintenanceModeAdmin(admin.ModelAdmin):
         obj.save()
         
     def has_add_permission(self, request):
-        # Only allow one instance
         return not MaintenanceMode.objects.exists()
     
     def has_delete_permission(self, request, obj=None):
