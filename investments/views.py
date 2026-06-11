@@ -35,18 +35,22 @@ def extract_transaction_id(mpesa_message):
     if not mpesa_message:
         return None
     
+    # Pattern: "XXX1234567890 Confirmed" at start of message
     txn_match = re.search(r'^([A-Z0-9]{8,12})\s+Confirmed', mpesa_message)
     if txn_match:
         return txn_match.group(1)
     
+    # Pattern: "Transaction ID: XXX1234567890"
     txn_match = re.search(r'(?:Transaction|Txn)\s*ID:?\s*([A-Z0-9]{8,12})', mpesa_message, re.IGNORECASE)
     if txn_match:
         return txn_match.group(1)
     
+    # Pattern: First word that looks like a transaction ID
     txn_match = re.match(r'^([A-Z0-9]{8,12})', mpesa_message.strip())
     if txn_match:
         return txn_match.group(1)
     
+    # Any 8-12 character alphanumeric string
     txn_match = re.search(r'\b([A-Z0-9]{8,12})\b', mpesa_message)
     if txn_match:
         return txn_match.group(1)
@@ -710,8 +714,8 @@ def submit_deposit_request(request):
         return Response({'error': str(e)}, status=500)
 
 
-# ========== NEW DEPOSIT SYSTEM (Step 2: Verify Payment) ==========
-@api_view(['POST'])
+# ========== NEW DEPOSIT SYSTEM (Step 2: Verify Payment) - FIXED DECORATOR ==========
+@api_view(['POST'])  # ← CORRECT: Only POST method
 def verify_deposit_payment(request):
     """Step 2: User pastes M-Pesa message - validates and updates deposit (NO money added yet)"""
     try:
@@ -745,6 +749,7 @@ def verify_deposit_payment(request):
         except User.DoesNotExist:
             return Response({'error': 'User not found'}, status=404)
         
+        # Find the pending deposit request (Step 1)
         pending_deposit = Deposit.objects.filter(
             user=user,
             verification_status='pending_approval',
@@ -754,6 +759,7 @@ def verify_deposit_payment(request):
         if not pending_deposit:
             return Response({'error': 'No pending deposit request found. Please submit a deposit request first.'}, status=404)
         
+        # Validate the M-Pesa message
         validation = validate_mpesa_message(mpesa_message, pending_deposit.amount)
         
         if not validation['valid']:
@@ -762,9 +768,11 @@ def verify_deposit_payment(request):
         
         real_transaction_id = validation['transaction_id']
         
+        # Check if this transaction ID was already used
         if Deposit.objects.filter(transaction_id=real_transaction_id).exists():
             return Response({'error': 'This transaction ID has already been used. Please check your deposit history.'}, status=400)
         
+        # Update the deposit with the real transaction ID and message
         pending_deposit.mpesa_message = mpesa_message
         pending_deposit.transaction_id = real_transaction_id
         pending_deposit.verification_status = 'pending_admin_approval'
@@ -854,6 +862,7 @@ def admin_approve_deposit(request):
         if deposit.verification_status != 'pending_admin_approval':
             return Response({'error': f'Deposit already {deposit.verification_status}. Cannot approve again.'}, status=400)
         
+        # ADD MONEY TO WALLET - ONLY HERE!
         wallet, created = Wallet.objects.get_or_create(user=deposit.user)
         wallet.balance += deposit.amount
         wallet.total_deposited += deposit.amount
@@ -864,6 +873,9 @@ def admin_approve_deposit(request):
         deposit.approved_at = timezone.now()
         deposit.approved_by = request.data.get('approved_by', 'admin')
         deposit.save()
+        
+        # Update referral status
+        update_referral_status(deposit.user)
         
         FraudLog.objects.create(
             user=deposit.user,
@@ -906,21 +918,6 @@ def admin_reject_deposit(request):
         except Deposit.DoesNotExist:
             return Response({'error': 'Deposit not found'}, status=404)
         
-        if deposit.verification_status == 'approved':
-            try:
-                wallet = Wallet.objects.get(user=deposit.user)
-                if wallet.balance >= deposit.amount:
-                    wallet.balance -= deposit.amount
-                    wallet.total_deposited -= deposit.amount
-                    wallet.save()
-                    deduct_message = f' KES {deposit.amount:,.0f} deducted from user balance.'
-                else:
-                    deduct_message = f' WARNING: Insufficient balance to deduct full amount.'
-            except Wallet.DoesNotExist:
-                deduct_message = ' Wallet not found. Manual adjustment needed.'
-        else:
-            deduct_message = ' No money was added to wallet.'
-        
         deposit.verification_status = 'rejected'
         deposit.status = 'rejected'
         deposit.rejection_reason = reason
@@ -938,8 +935,9 @@ def admin_reject_deposit(request):
         
         return Response({
             'success': True,
-            'message': f'❌ Deposit rejected.{deduct_message}',
-            'reason': reason        })
+            'message': f'❌ Deposit rejected. Reason: {reason}',
+            'reason': reason
+        })
         
     except Exception as e:
         print(f"❌ Admin reject deposit error: {str(e)}")
@@ -1028,6 +1026,12 @@ def request_mpesa_deposit(request):
 def verify_mpesa_payment(request):
     """Legacy verify endpoint"""
     return Response({'error': 'Please use the new deposit system'}, status=400)
+
+
+# ========== THE REST OF YOUR EXISTING VIEWS GO BELOW ==========
+# (Account Status, Products, Investments, Withdrawals, Referrals, etc.)
+# ... [keep all your other existing functions unchanged] ...
+
 
 # ========== ACCOUNT STATUS FUNCTIONS ==========
 @api_view(['GET'])
