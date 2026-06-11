@@ -992,7 +992,7 @@ function App() {
                   <div className="investments-stat-card accumulated">
                     <p className="stat-label">Accumulated Daily Earnings</p>
                     <h2>{formatCurrency(accumulatedEarnings)}</h2>
-                    <small>Running total (35 + 35 + 35...)</small>
+                    <small>From your {activeInvestments.length} investment(s)</small>
                   </div>
                 </div>
               );
