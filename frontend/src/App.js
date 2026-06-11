@@ -56,8 +56,10 @@ function App() {
   const [mpesaMessage, setMpesaMessage] = useState('');
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
-  const [showWaitingMessage, setShowWaitingMessage] = useState(false);
-  const [currentTransactionId, setCurrentTransactionId] = useState(null);
+  const [showRequestSubmitted, setShowRequestSubmitted] = useState(false);
+  const [submittedAmount, setSubmittedAmount] = useState(null);
+  const [submittedPhone, setSubmittedPhone] = useState('');
+  const [currentDepositId, setCurrentDepositId] = useState(null);
   
   // ========== WITHDRAWAL STATE ==========
   const [withdrawAmount, setWithdrawAmount] = useState('');
@@ -113,24 +115,22 @@ function App() {
   // ========== POLL FOR DEPOSIT STATUS ==========
   useEffect(() => {
     let interval;
-    if (showWaitingMessage && currentTransactionId) {
+    if (currentDepositId) {
       interval = setInterval(async () => {
         try {
           const response = await axios.get(`${API_URL}/check-deposit-status/`, {
             params: {
               user_id: userId,
-              transaction_id: currentTransactionId
+              deposit_id: currentDepositId
             }
           });
           
           if (response.data.status === 'approved') {
-            setShowWaitingMessage(false);
-            setCurrentTransactionId(null);
+            setCurrentDepositId(null);
             showMessage('✅ Deposit approved! Money has been added to your wallet.', 'success');
             loadDashboardData(userId);
           } else if (response.data.status === 'rejected') {
-            setShowWaitingMessage(false);
-            setCurrentTransactionId(null);
+            setCurrentDepositId(null);
             showMessage('❌ Deposit was rejected. Please contact admin for details.', 'error');
           }
         } catch (error) {
@@ -139,7 +139,7 @@ function App() {
       }, 10000);
     }
     return () => clearInterval(interval);
-  }, [showWaitingMessage, currentTransactionId, userId]);
+  }, [currentDepositId, userId]);
 
   // ========== HELPER FUNCTIONS ==========
   const formatCurrency = (amount) => {
@@ -437,7 +437,7 @@ function App() {
     }
   };
 
-  // ========== SUBMIT DEPOSIT REQUEST (Admin Approval Required) ==========
+  // ========== STEP 1: SUBMIT DEPOSIT REQUEST ==========
   const submitDepositRequest = async () => {
     const amount = parseFloat(depositAmount);
     if (!amount || amount < 100) {
@@ -455,16 +455,16 @@ function App() {
       const response = await axios.post(`${API_URL}/submit-deposit-request/`, {
         user_id: userId,
         amount: amount,
-        phone_number: mpesaPhone,
-        mpesa_message: ""
+        phone_number: mpesaPhone
       });
       
       if (response.data.success) {
-        setCurrentTransactionId(response.data.transaction_id);
-        setShowWaitingMessage(true);
+        setSubmittedAmount(amount);
+        setSubmittedPhone(mpesaPhone);
+        setCurrentDepositId(response.data.deposit_id);
+        setShowRequestSubmitted(true);
         showMessage(response.data.message, 'success');
-        setDepositAmount('');
-        setMpesaPhone('');
+        // Don't clear the form - keep values for reference
       } else {
         showMessage(response.data.error || 'Failed to submit request', 'error');
       }
@@ -475,33 +475,25 @@ function App() {
     }
   };
 
-  // ========== VERIFY MANUAL PAYMENT (After Admin Approval) ==========
-  const verifyPayment = async () => {
-    const amount = parseFloat(depositAmount);
-    if (!amount || amount < 100) {
-      showMessage(`Minimum deposit is ${formatCurrency(100)}`, 'error');
-      return;
-    }
+  // ========== STEP 2: VERIFY DEPOSIT (Paste M-Pesa Message) ==========
+  const verifyDeposit = async () => {
     if (!mpesaMessage || mpesaMessage.length < 20) {
-      showMessage('Please paste your M-Pesa confirmation message', 'error');
+      showMessage('Please paste your full M-Pesa confirmation message', 'error');
       return;
     }
     
     setIsVerifyingPayment(true);
+    
     try {
-      const response = await axios.post(`${API_URL}/verify-manual-payment/`, {
+      const response = await axios.post(`${API_URL}/verify-deposit/`, {
         user_id: userId,
-        amount: amount,
-        phone_number: mpesaPhone,
         mpesa_message: mpesaMessage
       });
+      
       if (response.data.success) {
         showMessage(response.data.message, 'success');
-        setDepositAmount('');
         setMpesaMessage('');
-        setMpesaPhone('');
-        setShowWaitingMessage(false);
-        setCurrentTransactionId(null);
+        // Keep showRequestSubmitted true - user can submit another request if needed
         loadDashboardData(userId);
       } else {
         showMessage(response.data.error || 'Verification failed', 'error');
@@ -1017,7 +1009,7 @@ function App() {
           </>
         )}
 
-        {/* Deposit Page - UPDATED with Separate Sections */}
+        {/* Deposit Page - NEW 2-STEP FLOW */}
         {currentPage === 'deposit' && (
           <div className="deposit-container">
             <div className="transaction-card">
@@ -1041,7 +1033,7 @@ function App() {
                 </div>
               </div>
               
-              {/* SECTION 1: SUBMIT DEPOSIT REQUEST (Admin Approval Required) */}
+              {/* SECTION 1: SUBMIT DEPOSIT REQUEST */}
               <div className="deposit-request-section">
                 <h3>Step 1: Request Deposit Approval</h3>
                 <div className="deposit-form">
@@ -1053,7 +1045,7 @@ function App() {
                       className="auth-input" 
                       value={depositAmount} 
                       onChange={(e) => setDepositAmount(e.target.value)} 
-                      disabled={showWaitingMessage}
+                      disabled={showRequestSubmitted}
                     />
                   </div>
                   
@@ -1065,12 +1057,11 @@ function App() {
                       className="auth-input" 
                       value={mpesaPhone} 
                       onChange={(e) => setMpesaPhone(e.target.value)} 
-                      disabled={showWaitingMessage}
+                      disabled={showRequestSubmitted}
                     />
                   </div>
                   
-                  {/* SUBMIT DEPOSIT REQUEST BUTTON */}
-                  {!showWaitingMessage && (
+                  {!showRequestSubmitted ? (
                     <button 
                       className="btn-primary" 
                       onClick={submitDepositRequest} 
@@ -1078,49 +1069,46 @@ function App() {
                     >
                       {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
                     </button>
+                  ) : (
+                    <div className="check-phone-message">
+                      <div className="check-phone-icon">📱</div>
+                      <div className="check-phone-text">
+                        <strong>CHECK YOUR PHONE</strong><br />
+                        Complete the M-PESA transaction on your phone.<br />
+                        Then paste the confirmation message below.
+                      </div>
+                    </div>
                   )}
                 </div>
-                
-                {/* WAITING FOR ADMIN APPROVAL - Green Popout Message */}
-                {showWaitingMessage && (
-                  <div className="waiting-approval-green">
-                    <div className="waiting-icon-green">⏳</div>
-                    <div className="waiting-text-green">
-                      <strong>WAITING FOR ADMIN APPROVAL</strong>
-                      Your deposit request has been submitted.<br />
-                      Admin will review and approve your transaction.<br />
-                      You will be notified once approved.<br />
-                      <strong>Check your balance after approval.</strong>
-                    </div>
-                  </div>
-                )}
               </div>
               
-              {/* SECTION 2: VERIFY PAYMENT (After Admin Approval) */}
-              <div className="verify-payment-section">
-                <h3>Step 2: Verify Payment After Approval</h3>
-                <div className="mpesa-message-section">
-                  <div className="form-group">
-                    <label>M-Pesa Confirmation Message *</label>
-                    <textarea 
-                      placeholder="After admin approves, paste your M-Pesa confirmation message here..." 
-                      className="auth-input" 
-                      rows="3" 
-                      value={mpesaMessage} 
-                      onChange={(e) => setMpesaMessage(e.target.value)} 
-                      style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
-                    />
+              {/* SECTION 2: VERIFY PAYMENT - Only show after step 1 submitted */}
+              {showRequestSubmitted && (
+                <div className="verify-payment-section">
+                  <h3>Step 2: Verify Payment</h3>
+                  <div className="mpesa-message-section">
+                    <div className="form-group">
+                      <label>M-Pesa Confirmation Message *</label>
+                      <textarea 
+                        placeholder="Paste your M-Pesa confirmation message here..." 
+                        className="auth-input" 
+                        rows="3" 
+                        value={mpesaMessage} 
+                        onChange={(e) => setMpesaMessage(e.target.value)} 
+                        style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
+                      />
+                    </div>
+                    <button 
+                      className="btn-verify" 
+                      onClick={verifyDeposit} 
+                      disabled={isVerifyingPayment}
+                    >
+                      {isVerifyingPayment ? 'Verifying...' : 'Verify Payment'}
+                    </button>
+                    <p className="verify-note">⏳ After verification, admin will review and approve your deposit. Funds will appear after admin approval.</p>
                   </div>
-                  <button 
-                    className="btn-verify" 
-                    onClick={verifyPayment} 
-                    disabled={isVerifyingPayment}
-                  >
-                    {isVerifyingPayment ? 'Verifying...' : 'Verify Payment'}
-                  </button>
-                  <p className="verify-note">⏳ Thank you for waiting. After admin approval, paste your M-Pesa message here and click Verify Payment. Your wallet will be updated once verified.</p>
                 </div>
-              </div>
+              )}
               
               <div className="deposit-notes-compact">
                 <span>❌ Fake payments = account ban.</span>
