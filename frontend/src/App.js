@@ -1018,128 +1018,117 @@ function App() {
         )}
 
         {/* Deposit Page - UPDATED with Separate Sections */}
-{currentPage === 'deposit' && (
-  <div className="deposit-container">
-    <div className="transaction-card">
-      <h2>Deposit Funds</h2>
-      
-      {/* IMPORTANT NOTICE - ADMIN CONTACT */}
-      <div className="admin-contact-notice">
-        <div className="admin-contact-icon">⚠️</div>
-        <div className="admin-contact-content">
-          <strong>YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
-          <div className="contact-numbers">
-            <div className="contact-item">
-              <span>📱 WhatsApp:</span>
-              <span>0142891121</span>
-            </div>
-            <div className="contact-item">
-              <span>📨 Telegram:</span>
-              <span>0142891121</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* SECTION 1: SUBMIT DEPOSIT REQUEST */}
-      <div className="deposit-request-section">
-        <h3>Step 1: Request Deposit</h3>
-        <div className="deposit-form">
-          <div className="form-group">
-            <label>Amount (KES) *</label>
-            <input 
-              type="number" 
-              placeholder="Enter amount (min KES 100)" 
-              className="auth-input" 
-              value={depositAmount} 
-              onChange={(e) => setDepositAmount(e.target.value)} 
-              disabled={showWaitingMessage}
-            />
-          </div>
-          
-          <div className="form-group">
-            <label>Your M-Pesa Phone Number *</label>
-            <input 
-              type="tel" 
-              placeholder="e.g., 0712345678" 
-              className="auth-input" 
-              value={mpesaPhone} 
-              onChange={(e) => setMpesaPhone(e.target.value)} 
-              disabled={showWaitingMessage}
-            />
-          </div>
-          
-          {/* SUBMIT DEPOSIT REQUEST BUTTON */}
-          {!showWaitingMessage && (
-            <button 
-              className="btn-primary" 
-              onClick={submitDepositRequest} 
-              disabled={isSubmittingRequest}
-            >
-              {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
-            </button>
-          )}
-        </div>
-        
-        {/* CHECK YOUR PHONE - Popup Message (Changed from WAITING FOR ADMIN APPROVAL) */}
-        {showWaitingMessage && (
-          <div className="waiting-approval-green">
-            <div className="waiting-icon-green">📱</div>
-            <div className="waiting-text-green">
-              <strong>CHECK YOUR PHONE</strong>
-              An M-PESA prompt has been sent to your phone.<br />
-              Enter your PIN to complete the transaction.<br />
-              After successful payment, go to <strong>Step 2</strong> to verify your payment.
+        {currentPage === 'deposit' && (
+          <div className="deposit-container">
+            <div className="transaction-card">
+              <h2>Deposit Funds</h2>
+              
+              {/* IMPORTANT NOTICE - ADMIN CONTACT */}
+              <div className="admin-contact-notice">
+                <div className="admin-contact-icon">⚠️</div>
+                <div className="admin-contact-content">
+                  <strong>YOU MUST CONTACT ADMIN BEFORE DEPOSIT FOR APPROVAL</strong>
+                  <div className="contact-numbers">
+                    <div className="contact-item">
+                      <span>📱 WhatsApp:</span>
+                      <span>0142891121</span>
+                    </div>
+                    <div className="contact-item">
+                      <span>📨 Telegram:</span>
+                      <span>0142891121</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* SECTION 1: SUBMIT DEPOSIT REQUEST (Admin Approval Required) */}
+              <div className="deposit-request-section">
+                <h3>Step 1: Request Deposit Approval</h3>
+                <div className="deposit-form">
+                  <div className="form-group">
+                    <label>Amount (KES) *</label>
+                    <input 
+                      type="number" 
+                      placeholder="Enter amount (min KES 100)" 
+                      className="auth-input" 
+                      value={depositAmount} 
+                      onChange={(e) => setDepositAmount(e.target.value)} 
+                      disabled={showWaitingMessage}
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Your M-Pesa Phone Number *</label>
+                    <input 
+                      type="tel" 
+                      placeholder="e.g., 0712345678" 
+                      className="auth-input" 
+                      value={mpesaPhone} 
+                      onChange={(e) => setMpesaPhone(e.target.value)} 
+                      disabled={showWaitingMessage}
+                    />
+                  </div>
+                  
+                  {/* SUBMIT DEPOSIT REQUEST BUTTON */}
+                  {!showWaitingMessage && (
+                    <button 
+                      className="btn-primary" 
+                      onClick={submitDepositRequest} 
+                      disabled={isSubmittingRequest}
+                    >
+                      {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
+                    </button>
+                  )}
+                </div>
+                
+                {/* WAITING FOR ADMIN APPROVAL - Green Popout Message */}
+                {showWaitingMessage && (
+                  <div className="waiting-approval-green">
+                    <div className="waiting-icon-green">⏳</div>
+                    <div className="waiting-text-green">
+                      <strong>WAITING FOR ADMIN APPROVAL</strong>
+                      Your deposit request has been submitted.<br />
+                      Admin will review and approve your transaction.<br />
+                      You will be notified once approved.<br />
+                      <strong>Check your balance after approval.</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* SECTION 2: VERIFY PAYMENT (After Admin Approval) */}
+              <div className="verify-payment-section">
+                <h3>Step 2: Verify Payment After Approval</h3>
+                <div className="mpesa-message-section">
+                  <div className="form-group">
+                    <label>M-Pesa Confirmation Message *</label>
+                    <textarea 
+                      placeholder="After admin approves, paste your M-Pesa confirmation message here..." 
+                      className="auth-input" 
+                      rows="3" 
+                      value={mpesaMessage} 
+                      onChange={(e) => setMpesaMessage(e.target.value)} 
+                      style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
+                    />
+                  </div>
+                  <button 
+                    className="btn-verify" 
+                    onClick={verifyPayment} 
+                    disabled={isVerifyingPayment}
+                  >
+                    {isVerifyingPayment ? 'Verifying...' : 'Verify Payment'}
+                  </button>
+                  <p className="verify-note">⏳ Thank you for waiting. After admin approval, paste your M-Pesa message here and click Verify Payment. Your wallet will be updated once verified.</p>
+                </div>
+              </div>
+              
+              <div className="deposit-notes-compact">
+                <span>❌ Fake payments = account ban.</span>
+                <span>📋 Admin must approve your deposit before funds appear in your wallet.</span>
+              </div>
             </div>
           </div>
         )}
-      </div>
-      
-      {/* SECTION 2: VERIFY PAYMENT (After completing payment) */}
-      <div className="verify-payment-section">
-        <h3>Step 2: Verify Payment</h3>
-        <div className="mpesa-message-section">
-          <div className="form-group">
-            <label>Transaction ID *</label>
-            <input 
-              type="text" 
-              placeholder="Enter your Transaction ID from Step 1" 
-              className="auth-input" 
-              value={currentTransactionId || ''} 
-              onChange={(e) => setCurrentTransactionId(e.target.value)} 
-            />
-            <small>Enter the Transaction ID you received after Step 1</small>
-          </div>
-          <div className="form-group">
-            <label>M-Pesa Confirmation Message *</label>
-            <textarea 
-              placeholder="After completing payment, paste your M-Pesa confirmation message here..." 
-              className="auth-input" 
-              rows="3" 
-              value={mpesaMessage} 
-              onChange={(e) => setMpesaMessage(e.target.value)} 
-              style={{ resize: 'vertical', fontFamily: 'monospace', fontSize: '12px' }} 
-            />
-          </div>
-          <button 
-            className="btn-verify" 
-            onClick={verifyPaymentWithMessage} 
-            disabled={isVerifyingPayment || !currentTransactionId}
-          >
-            {isVerifyingPayment ? 'Verifying...' : 'Submit & Verify'}
-          </button>
-          <p className="verify-note">📋 Paste your M-Pesa confirmation message here. Admin will review and approve your deposit.</p>
-        </div>
-      </div>
-      
-      <div className="deposit-notes-compact">
-        <span>❌ Fake payments = account ban.</span>
-        <span>📋 Valid Tills: 3469753, 9315062, 9307094</span>
-        <span>📋 Valid Business Names: Muthoni Muthoga, Brian Mogire Nyabuto, Dorcas Njeri Mwai</span>
-      </div>
-    </div>
-  </div>
-)}
 
         {/* Withdraw Page */}
         {currentPage === 'withdraw' && (
