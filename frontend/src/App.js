@@ -463,7 +463,7 @@ function App() {
         setSubmittedPhone(mpesaPhone);
         setCurrentDepositId(response.data.deposit_id);
         setShowRequestSubmitted(true);
-        showMessage('📱 CHECK YOUR PHONE - Complete M-Pesa transaction using Till 3469753', 'success');
+        showMessage('📱 CHECK YOUR PHONE - Complete M-Pesa transaction', 'success');
       } else {
         showMessage(response.data.error || 'Failed to submit request', 'error');
       }
