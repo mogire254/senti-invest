@@ -684,9 +684,9 @@ def submit_deposit_request(request):
         
         print(f"✅ Deposit request created: {user.username} - KES {amount:,.0f}")
         
+        # UPDATED: Removed the success message that caused the popup
         return Response({
             'success': True,
-            'message': f'✅ Deposit request of KES {amount:,.0f} submitted. Check your phone to complete the M-PESA transaction, then paste the confirmation message.',
             'request_id': request_id,
             'amount': float(amount),
             'pending_approval': True
