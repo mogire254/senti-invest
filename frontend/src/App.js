@@ -965,72 +965,96 @@ function App() {
         )}
 
         {/* My Investments Page */}
-        {currentPage === 'investments' && (
-          <>
-            <div className="section-header">
-              <h1>My Investments</h1>
-              <p>Track your active investments</p>
+{currentPage === 'investments' && (
+  <>
+    <div className="section-header">
+      <h1>My Investments</h1>
+      <p>Track your active investments</p>
+    </div>
+    
+    {(() => {
+      const calculateAccumulatedEarnings = () => {
+        if (activeInvestments.length === 0) return 0;
+        
+        // Get the earliest investment date
+        const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
+        const today = new Date();
+        
+        // Calculate days since first investment
+        let daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
+        
+        // If investment was made today or daysSinceFirst is 0, show at least 1 day
+        if (daysSinceFirst < 1 && activeInvestments.length > 0) {
+          daysSinceFirst = 1;
+        }
+        
+        // Accumulated earnings = daily earnings × days since first investment
+        return dailyEarnings * daysSinceFirst;
+      };
+      
+      const accumulatedEarnings = calculateAccumulatedEarnings();
+      
+      // Calculate days for display
+      const getDaysDisplay = () => {
+        if (activeInvestments.length === 0) return 0;
+        const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
+        const today = new Date();
+        let days = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
+        if (days < 1) days = 1;
+        return days;
+      };
+      
+      const daysCount = getDaysDisplay();
+      
+      return (
+        <div className="investments-stats-row">
+          <div className="investments-stat-card daily">
+            <p className="stat-label">Total Daily Earnings</p>
+            <h2>{formatCurrency(dailyEarnings)}</h2>
+            <small>You earn this EVERY DAY</small>
+          </div>
+          <div className="investments-stat-card accumulated">
+            <p className="stat-label">Accumulated Daily Earnings</p>
+            <h2>{formatCurrency(accumulatedEarnings)}</h2>
+            <small>{formatCurrency(dailyEarnings)} × {daysCount} day{daysCount !== 1 ? 's' : ''}</small>
+          </div>
+        </div>
+      );
+    })()}
+    
+    {isLoading ? (
+      <div className="empty-state"><p>Loading investments...</p></div>
+    ) : activeInvestments.length === 0 ? (
+      <div className="empty-state">
+        <p>No active investments yet.</p>
+        <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
+      </div>
+    ) : (
+      <div className="investments-grid">
+        {activeInvestments.map(inv => (
+          <div key={inv.id} className="investment-card-square">
+            <div className="investment-header">
+              <div>
+                <h3>{inv.product_name}</h3>
+                <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
+              </div>
+              <div className="investment-amount">{formatCurrency(inv.amount)}</div>
             </div>
-            
-            {(() => {
-              const calculateAccumulatedEarnings = () => {
-                if (activeInvestments.length === 0) return 0;
-                const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
-                const today = new Date();
-                const daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
-                return dailyEarnings * (daysSinceFirst + 1);
-              };
-              const accumulatedEarnings = calculateAccumulatedEarnings();
-              
-              return (
-                <div className="investments-stats-row">
-                  <div className="investments-stat-card daily">
-                    <p className="stat-label">Total Daily Earnings</p>
-                    <h2>{formatCurrency(dailyEarnings)}</h2>
-                    <small>You earn this EVERY DAY</small>
-                  </div>
-                  <div className="investments-stat-card accumulated">
-                    <p className="stat-label">Accumulated Daily Earnings</p>
-                    <h2>{formatCurrency(accumulatedEarnings)}</h2>
-                    <small>From your {activeInvestments.length} investment(s)</small>
-                  </div>
-                </div>
-              );
-            })()}
-            
-            {isLoading ? (
-              <div className="empty-state"><p>Loading investments...</p></div>
-            ) : activeInvestments.length === 0 ? (
-              <div className="empty-state">
-                <p>No active investments yet.</p>
-                <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
+            <div className="investment-stats-square">
+              <div className="stat-item">
+                <p className="stat-label">Daily Earnings</p>
+                <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
               </div>
-            ) : (
-              <div className="investments-grid">
-                {activeInvestments.map(inv => (
-                  <div key={inv.id} className="investment-card-square">
-                    <div className="investment-header">
-                      <div>
-                        <h3>{inv.product_name}</h3>
-                        <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
-                      </div>
-                      <div className="investment-amount">{formatCurrency(inv.amount)}</div>
-                    </div>
-                    <div className="investment-stats-square">
-                      <div className="stat-item">
-                        <p className="stat-label">Daily Earnings</p>
-                        <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
-                      </div>
-                    </div>
-                    {inv.product_level !== 'vip' && (
-                      <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
-                    )}
-                  </div>
-                ))}
-              </div>
+            </div>
+            {inv.product_level !== 'vip' && (
+              <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
             )}
-          </>
-        )}
+          </div>
+        ))}
+      </div>
+    )}
+  </>
+)}
 
         {/* Deposit Page - 2-STEP FLOW with FIXED verification */}
         {currentPage === 'deposit' && (
