@@ -2578,3 +2578,186 @@ tr.status-rejected td {
   display: block;
   margin-bottom: 8px;
 }
+/* ========== IMPROVED WITHDRAWAL HISTORY ========== */
+
+/* History Cards Container */
+.history-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+/* Individual History Card */
+.history-card {
+  background: white;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #e0e0e0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.history-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+/* Status-specific border colors */
+.history-card.status-pending {
+  border-left-color: #f59e0b;
+  background: #fffbeb;
+}
+
+.history-card.status-approved {
+  border-left-color: #10b981;
+  background: #ecfdf5;
+}
+
+.history-card.status-rejected {
+  border-left-color: #ef4444;
+  background: #fef2f2;
+}
+
+/* Card Header - Amount and Status */
+.history-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-amount {
+  display: flex;
+  flex-direction: column;
+}
+
+.amount-label {
+  font-size: 11px;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.amount-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #1a1a2e;
+}
+
+/* Status Badge */
+.history-status {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 90px;
+  justify-content: center;
+}
+
+/* Card Body - Details */
+.history-card-body {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.history-detail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #4a4a6a;
+  background: #f8f9fa;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.detail-icon {
+  font-size: 14px;
+}
+
+.detail-text {
+  font-weight: 500;
+}
+
+/* Card Footer - Status Note */
+.history-card-footer {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.history-card-footer.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.history-card-footer.approved {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.history-card-footer.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Empty History State */
+.empty-history {
+  text-align: center;
+  padding: 40px 20px;
+  color: #666;
+}
+
+.empty-history .empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-history .empty-note {
+  font-size: 12px;
+  color: #999;
+  margin-top: 8px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 640px) {
+  .history-card-body {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .history-card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .history-status {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .amount-value {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .history-card-body {
+    grid-template-columns: 1fr;
+  }
+  
+  .history-card {
+    padding: 12px;
+  }
+}

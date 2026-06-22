@@ -1165,58 +1165,133 @@ function App() {
           </div>
         )}
 
-        {/* Withdraw Page */}
-        {currentPage === 'withdraw' && (
-          <div className="withdraw-container">
-            <div className="transaction-card">
-              <h2>Withdraw Funds</h2>
-              <div className="withdraw-info-note">
-                <p>⏰ <strong>Processing Time:</strong> 1 - 12 hours</p>
-                <p>💰 <strong>Minimum Withdrawal:</strong> KES 300</p>
-                <p>📱 Funds will be sent to your M-Pesa number after admin approval</p>
-              </div>
-              <p>Available balance: <strong>{formatCurrency(balance)}</strong></p>
-              <input type="number" placeholder="Amount (KES)" className="auth-input" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} />
-              <input type="tel" placeholder="M-Pesa Phone Number" className="auth-input" value={withdrawPhone} onChange={(e) => setWithdrawPhone(e.target.value)} />
-              <button className="btn-primary" onClick={handleWithdraw} disabled={isLoading}>{isLoading ? 'Processing...' : 'Request Withdrawal'}</button>
-            </div>
+        {/* Withdraw Page - Updated with prettier history */}
+{currentPage === 'withdraw' && (
+  <div className="withdraw-container">
+    <div className="transaction-card">
+      <h2>Withdraw Funds</h2>
+      <div className="withdraw-info-note">
+        <p>⏰ <strong>Processing Time:</strong> 1 - 12 hours</p>
+        <p>💰 <strong>Minimum Withdrawal:</strong> KES 300</p>
+        <p>📱 Funds will be sent to your M-Pesa number after admin approval</p>
+      </div>
+      <p>Available balance: <strong>{formatCurrency(balance)}</strong></p>
+      <input 
+        type="number" 
+        placeholder="Amount (KES)" 
+        className="auth-input" 
+        value={withdrawAmount} 
+        onChange={(e) => setWithdrawAmount(e.target.value)} 
+      />
+      <input 
+        type="tel" 
+        placeholder="M-Pesa Phone Number" 
+        className="auth-input" 
+        value={withdrawPhone} 
+        onChange={(e) => setWithdrawPhone(e.target.value)} 
+      />
+      <button className="btn-primary" onClick={handleWithdraw} disabled={isLoading}>
+        {isLoading ? 'Processing...' : 'Request Withdrawal'}
+      </button>
+    </div>
 
-            <div className="withdrawal-history">
-              <div className="history-header" onClick={() => setShowWithdrawalHistory(!showWithdrawalHistory)}>
-                <h3>📋 Withdrawal History</h3>
-                <span className={`history-toggle ${showWithdrawalHistory ? 'open' : ''}`}>▼</span>
-              </div>
-              
-              {showWithdrawalHistory && (
-                <div className="history-list">
-                  {withdrawalHistory.length === 0 ? (
-                    <div className="empty-history">
-                      <p>No withdrawal requests yet.</p>
-                      <p className="empty-note">Your withdrawal history will appear here</p>
-                    </div>
-                  ) : (
-                    <table className="history-table">
-                      <thead>
-                        <tr><th>Date</th><th>Amount</th><th>Phone</th><th>Status</th><th>Note</th></tr>
-                      </thead>
-                      <tbody>
-                        {withdrawalHistory.map((withdrawal, index) => (
-                          <tr key={withdrawal.id || index} className={`status-${withdrawal.status}`}>
-                            <td>{new Date(withdrawal.created_at).toLocaleDateString()}</td>
-                            <td>{formatCurrency(withdrawal.amount)}</td>
-                            <td>{withdrawal.phone_number}</td>
-                            <td className="status-cell"><span className={`status-badge status-${withdrawal.status}`}>{getStatusIcon(withdrawal.status)} {getStatusText(withdrawal.status)}</span></td>
-                            <td className="note-cell">{getStatusNote(withdrawal.status)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              )}
+    {/* Withdrawal History - Improved Design */}
+    <div className="withdrawal-history">
+      <div className="history-header" onClick={() => setShowWithdrawalHistory(!showWithdrawalHistory)}>
+        <h3>📋 Withdrawal History</h3>
+        <span className={`history-toggle ${showWithdrawalHistory ? 'open' : ''}`}>▼</span>
+      </div>
+      
+      {showWithdrawalHistory && (
+        <div className="history-list">
+          {withdrawalHistory.length === 0 ? (
+            <div className="empty-history">
+              <div className="empty-icon">💸</div>
+              <p>No withdrawal requests yet.</p>
+              <p className="empty-note">Your withdrawal history will appear here</p>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="history-cards">
+              {withdrawalHistory.map((withdrawal, index) => {
+                const date = new Date(withdrawal.created_at);
+                const formattedDate = date.toLocaleDateString('en-KE', { 
+                  year: 'numeric', 
+                  month: 'short', 
+                  day: 'numeric' 
+                });
+                const formattedTime = date.toLocaleTimeString('en-KE', { 
+                  hour: '2-digit', 
+                  minute: '2-digit'
+                });
+                
+                let statusColor = '';
+                let statusIcon = '';
+                let statusLabel = '';
+                
+                if (withdrawal.status === 'pending') {
+                  statusColor = '#f59e0b';
+                  statusIcon = '⏳';
+                  statusLabel = 'Pending';
+                } else if (withdrawal.status === 'approved') {
+                  statusColor = '#10b981';
+                  statusIcon = '✅';
+                  statusLabel = 'Approved';
+                } else if (withdrawal.status === 'rejected') {
+                  statusColor = '#ef4444';
+                  statusIcon = '❌';
+                  statusLabel = 'Rejected';
+                }
+                
+                return (
+                  <div key={withdrawal.id || index} className={`history-card status-${withdrawal.status}`}>
+                    <div className="history-card-header">
+                      <div className="history-amount">
+                        <span className="amount-label">Amount</span>
+                        <span className="amount-value">{formatCurrency(withdrawal.amount)}</span>
+                      </div>
+                      <div className="history-status" style={{ backgroundColor: statusColor }}>
+                        <span>{statusIcon} {statusLabel}</span>
+                      </div>
+                    </div>
+                    <div className="history-card-body">
+                      <div className="history-detail">
+                        <span className="detail-icon">📱</span>
+                        <span className="detail-text">{withdrawal.phone_number}</span>
+                      </div>
+                      <div className="history-detail">
+                        <span className="detail-icon">📅</span>
+                        <span className="detail-text">{formattedDate}</span>
+                      </div>
+                      <div className="history-detail">
+                        <span className="detail-icon">🕐</span>
+                        <span className="detail-text">{formattedTime}</span>
+                      </div>
+                    </div>
+                    {withdrawal.status === 'pending' && (
+                      <div className="history-card-footer pending">
+                        ⏳ Waiting for admin approval
+                      </div>
+                    )}
+                    {withdrawal.status === 'approved' && (
+                      <div className="history-card-footer approved">
+                        ✅ Money sent to your M-Pesa
+                      </div>
+                    )}
+                    {withdrawal.status === 'rejected' && (
+                      <div className="history-card-footer rejected">
+                        ❌ Contact support for assistance
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
         {/* Referrals Page */}
         {currentPage === 'referrals' && (
