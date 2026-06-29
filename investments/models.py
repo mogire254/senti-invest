@@ -101,8 +101,13 @@ class InvestmentProduct(models.Model):
             return 10  # Diamond Pro = 10 days
         elif self.level in ['platinum', 'diamond']:
             return 16  # Platinum/Diamond = 16 days
+        elif self.level == 'vip':
+            # VIP Locked products (Elite, Premium, Ultimate, Diamond) are 5 days
+            if self.name in ['VIP Elite', 'VIP Premium', 'VIP Ultimate', 'VIP Diamond']:
+                return 5
+            return 10  # VIP Basic and VIP Plus are 10 days
         else:
-            return 10  # VIP and others = 10 days
+            return 10
     
     def __str__(self):
         return f"{self.name} - {self.get_level_display()} (KES {self.min_investment})"
