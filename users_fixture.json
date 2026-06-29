@@ -1,0 +1,707 @@
+[
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "+254140628282",
+      "first_name": "Nyaboke",
+      "last_name": "Gloria Nyaosi",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "+254703444140",
+      "first_name": "Caroline",
+      "last_name": "nyawira nyabuto",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0112396654",
+      "first_name": "ROSE",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0113152350",
+      "first_name": "Sophia",
+      "last_name": "Nailantei",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0113420696",
+      "first_name": "Emmanuel",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0114757956",
+      "first_name": "FAITH",
+      "last_name": "MWIKALI",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0115521408",
+      "first_name": "zekky",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0115919490",
+      "first_name": "spencer",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0142891121",
+      "first_name": "muthoni",
+      "last_name": "muthoga",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0701137944",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0701910844",
+      "first_name": "maestro",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0702101126",
+      "first_name": "Onyango",
+      "last_name": "louiser",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0703444140",
+      "first_name": "Caroline",
+      "last_name": "nyawir",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0704071967",
+      "first_name": "Sonnie",
+      "last_name": "sonua",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0704277139",
+      "first_name": "Joel",
+      "last_name": "Juma",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0707153640",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0707185888",
+      "first_name": "shelvine",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0708078748",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0708603811",
+      "first_name": "peter",
+      "last_name": "githinji wanyora",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0714347129",
+      "first_name": "mr.cocoon",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0714908298",
+      "first_name": "Dorcas",
+      "last_name": "njeri mwai",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0716436858",
+      "first_name": "Ruth",
+      "last_name": "buyaki",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0718136921",
+      "first_name": "0718136921",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0719461782",
+      "first_name": "Amos",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0719748675",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0726153770",
+      "first_name": "wambui",
+      "last_name": "muthoga",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0740742294",
+      "first_name": "newton",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0740750866",
+      "first_name": "Allan",
+      "last_name": "juma",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0741051592",
+      "first_name": "Emmanuel",
+      "last_name": "Mwema Okero",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0741496708",
+      "first_name": "charles",
+      "last_name": "wanjiru",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0741514772",
+      "first_name": "Lilian",
+      "last_name": "Nyaboe Mochoge",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0741696697",
+      "first_name": "Daniel",
+      "last_name": "Mogaka",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0742068059",
+      "first_name": "Moses",
+      "last_name": "Wagema",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0746506999",
+      "first_name": "Winnie",
+      "last_name": "Njeri",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0748099184",
+      "first_name": "meshack",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0748423139",
+      "first_name": "Bahire",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0757217408",
+      "first_name": "Amos",
+      "last_name": "bosire Angegah",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0759289130",
+      "first_name": "David",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0759694674",
+      "first_name": "haron",
+      "last_name": "nyambane",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0759941172",
+      "first_name": "kilion",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0763 163 919",
+      "first_name": "brayo",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0769609165",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0792153857",
+      "first_name": "miss",
+      "last_name": "talia",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0794236374",
+      "first_name": "Blesses",
+      "last_name": "Samuel",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0798214068",
+      "first_name": "dancun",
+      "last_name": "nyaribo",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "0798245587",
+      "first_name": "Benjamin",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  },
+  {
+    "model": "auth.user",
+    "pk": null,
+    "fields": {
+      "username": "4378180552",
+      "first_name": "derrick",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "is_superuser": false,
+      "last_login": null,
+      "date_joined": "2026-06-29T00:00:00Z"
+    }
+  }
+]
