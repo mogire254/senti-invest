@@ -229,7 +229,6 @@ class CustomUserAdmin(UserAdmin):
                 )
     force_password_reset.short_description = "🔑 Force password reset (generate link)"
 
-# Unregister default User admin and register custom one
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
 
@@ -350,12 +349,11 @@ class UserProfileAdmin(admin.ModelAdmin):
             )
     force_password_reset_profiles.short_description = "🔑 Force password reset (generate link)"
 
-# ========== WALLET ADMIN - FIXED TO ALLOW EDITING ==========
+# ========== WALLET ADMIN ==========
 @admin.register(Wallet)
 class WalletAdmin(admin.ModelAdmin):
     list_display = ('user', 'get_balance_display', 'total_deposited', 'total_withdrawn', 'total_earned', 'total_invested')
     search_fields = ('user__username',)
-    # REMOVED readonly_fields to allow editing of all fields
     fields = ('user', 'balance', 'total_deposited', 'total_withdrawn', 'total_earned', 'total_invested')
     
     def get_balance_display(self, obj):
@@ -384,10 +382,10 @@ class InvestmentProductAdmin(admin.ModelAdmin):
 # ========== USER INVESTMENT ADMIN ==========
 @admin.register(UserInvestment)
 class UserInvestmentAdmin(admin.ModelAdmin):
-    list_display = ('user', 'product', 'amount_display', 'daily_earnings_display', 'total_earned_display', 'status', 'days_left', 'invested_at')
+    list_display = ('user', 'product', 'amount_display', 'daily_earnings_display', 'total_earned_display', 'status', 'days_active', 'invested_at')
     list_filter = ('status', 'product__level')
     search_fields = ('user__username', 'product__name')
-    actions = ['cancel_investments']
+    actions = ['cancel_investments', 'complete_investments']
     
     def amount_display(self, obj):
         return f"KES {int(obj.amount):,}" if obj.amount else "KES 0"
@@ -402,15 +400,12 @@ class UserInvestmentAdmin(admin.ModelAdmin):
         return f"KES {int(obj.total_earned):,}" if obj.total_earned else "KES 0"
     total_earned_display.short_description = '💰 Total Earned'
     
-    def days_left(self, obj):
-        if obj.expiry_date and obj.status == 'active':
-            now = timezone.now()
-            if obj.expiry_date > now:
-                days = (obj.expiry_date - now).days
-                return f"✅ {days} days"
-            return "❌ Expired"
+    def days_active(self, obj):
+        if obj.status == 'active':
+            days = obj.days_active()
+            return f"📆 {days} days"
         return "N/A"
-    days_left.short_description = '⏰ Days Left'
+    days_active.short_description = '📆 Days Active'
     
     def cancel_investments(self, request, queryset):
         count = 0
@@ -434,6 +429,25 @@ class UserInvestmentAdmin(admin.ModelAdmin):
                 count += 1
         self.message_user(request, f"🔄 {count} investments cancelled and refunded!")
     cancel_investments.short_description = "Cancel selected investments (refund to wallet)"
+    
+    def complete_investments(self, request, queryset):
+        """Admin action to manually complete/expire investments"""
+        count = 0
+        for investment in queryset:
+            if investment.status == 'active':
+                investment.status = 'completed'
+                investment.save()
+                
+                FraudLog.objects.create(
+                    user=investment.user,
+                    action='investment_cancelled',
+                    amount=investment.amount,
+                    reason=f'Investment completed by admin {request.user.username}',
+                    performed_by=request.user.username
+                )
+                count += 1
+        self.message_user(request, f"✅ {count} investments marked as completed!")
+    complete_investments.short_description = "✅ Mark selected investments as COMPLETED"
 
 # ========== DEPOSIT ADMIN ==========
 @admin.register(Deposit)
@@ -448,10 +462,8 @@ class DepositAdmin(admin.ModelAdmin):
     amount_display.short_description = '💰 Amount'
     
     def approve_deposits_action(self, request, queryset):
-        """Approve selected deposits - ADD MONEY to user wallet"""
         approved_count = 0
         for deposit in queryset.filter(verification_status='pending_admin_approval'):
-            # Add money to wallet
             wallet, created = Wallet.objects.get_or_create(user=deposit.user)
             wallet.balance += deposit.amount
             wallet.total_deposited += deposit.amount
@@ -480,10 +492,8 @@ class DepositAdmin(admin.ModelAdmin):
     approve_deposits_action.short_description = "✅ Approve selected deposits (ADD MONEY to wallet)"
     
     def reject_deposits_action(self, request, queryset):
-        """Reject selected deposits - NO MONEY added to wallet (or deduct if already approved)"""
         rejected_count = 0
         for deposit in queryset:
-            # If deposit was already approved, deduct the amount
             if deposit.verification_status == 'approved':
                 try:
                     wallet = Wallet.objects.get(user=deposit.user)
@@ -497,7 +507,6 @@ class DepositAdmin(admin.ModelAdmin):
                 except Wallet.DoesNotExist:
                     pass
             
-            # Update deposit status to rejected
             deposit.verification_status = 'rejected'
             deposit.status = 'rejected'
             deposit.rejection_reason = f'Rejected by admin {request.user.username}'

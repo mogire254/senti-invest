@@ -1091,9 +1091,10 @@ def get_products(request):
     
     return Response({'products': data})
 
+# ========== INVEST PRODUCT - NO EXPIRY DATE ==========
 @api_view(['POST'])
 def invest_product(request):
-    """Invest in a product with proper duration based on level"""
+    """Invest in a product - NO EXPIRY DATE"""
     user_id = request.data.get('user_id')
     product_id = request.data.get('product_id')
     amount = Decimal(str(request.data.get('amount', 0)))
@@ -1126,7 +1127,7 @@ def invest_product(request):
     wallet.total_invested = (wallet.total_invested or 0) + amount
     wallet.save()
     
-    # Get duration based on product level
+    # Get duration for display ONLY - no expiry
     duration_days = product.get_duration()
     
     # Calculate daily earnings
@@ -1136,13 +1137,12 @@ def invest_product(request):
     if daily_earnings:
         daily_earnings = Decimal(str(round(float(daily_earnings), 2)))
     
-    expiry = timezone.now() + timedelta(days=duration_days)
-    
+    # Create investment - NO EXPIRY DATE
     investment = UserInvestment.objects.create(
         user=user,
         product=product,
         amount=amount,
-        expiry_date=expiry,
+        expiry_date=None,  # NO EXPIRY - stays active forever
         status='active',
         total_earned=Decimal('0'),
         last_earning_date=None
@@ -1156,35 +1156,23 @@ def invest_product(request):
         'new_balance': float(wallet.balance),
         'daily_earnings': float(daily_earnings) if daily_earnings else 0,
         'duration_days': duration_days,
-        'expiry_date': expiry.strftime('%Y-%m-%d'),
-        'message': f'Successfully invested KES {amount:,.0f} in {product.name} for {duration_days} days'
+        'message': f'Successfully invested KES {amount:,.0f} in {product.name}. This investment will earn daily forever!'
     })
 
+# ========== GET USER INVESTMENTS - NO AUTO-EXPIRY ==========
 @api_view(['GET'])
 def get_user_investments(request):
-    """Get user's active investments with proper duration and expiry"""
+    """Get user's active investments - NO AUTO-EXPIRY"""
     user_id = request.GET.get('user_id')
     
     try:
         user = User.objects.get(id=user_id)
         now = timezone.now()
         
-        # Check and auto-complete expired investments
-        active_investments = UserInvestment.objects.filter(
-            user=user, 
-            status='active'
-        ).select_related('product')
-        
-        for inv in active_investments:
-            if inv.expiry_date and now >= inv.expiry_date:
-                inv.status = 'completed'
-                inv.save()
-        
-        # Get remaining active investments
+        # Get ALL active investments - NO AUTO-EXPIRY CHECK
         investments = UserInvestment.objects.filter(
             user=user, 
-            status='active',
-            expiry_date__gt=now
+            status='active'
         ).select_related('product')
         
     except User.DoesNotExist:
@@ -1199,9 +1187,7 @@ def get_user_investments(request):
         daily = inv.product.get_daily_earnings(inv.amount) if inv.product else Decimal('0')
         total_daily += daily
         
-        days_left = (inv.expiry_date - now).days
-        if days_left < 0:
-            days_left = 0
+        days_active = inv.days_active()
         
         total_earned = inv.total_earned if inv.total_earned else Decimal('0')
         
@@ -1213,9 +1199,9 @@ def get_user_investments(request):
             'daily_earnings': float(daily),
             'total_earned': float(total_earned),
             'invested_at': inv.invested_at.strftime('%Y-%m-%d'),
-            'expiry_date': inv.expiry_date.strftime('%Y-%m-%d'),
-            'days_left': max(0, days_left),
-            'duration_days': inv.product.get_duration()
+            'days_active': days_active,
+            'duration_days': inv.product.get_duration(),
+            'status': inv.status
         })
     
     return Response({
@@ -1499,10 +1485,10 @@ def get_bonus_history(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
-# ========== DAILY EARNINGS API ==========
+# ========== DAILY EARNINGS - NO AUTO-EXPIRY ==========
 @api_view(['GET', 'POST'])
 def process_daily_earnings_api(request):
-    """API endpoint to trigger daily earnings"""
+    """API endpoint to trigger daily earnings - NO AUTO-EXPIRY"""
     print("\n" + "="*60)
     print(f"🔄 DAILY EARNINGS PROCESSING STARTED")
     print(f"⏰ Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -1511,9 +1497,9 @@ def process_daily_earnings_api(request):
     now = timezone.localtime(timezone.now())
     today = now.date()
     
+    # Get ALL active investments - NO EXPIRY CHECK
     active_investments = UserInvestment.objects.filter(
-        status='active', 
-        expiry_date__gt=timezone.now(),
+        status='active',
         user__profile__account_status='active',
         user__profile__is_approved=True
     )
@@ -1521,7 +1507,6 @@ def process_daily_earnings_api(request):
     total_earnings = Decimal('0')
     processed = 0
     users_affected = set()
-    skipped_frozen = 0
     
     for investment in active_investments:
         already_earned_today = False
@@ -1559,11 +1544,7 @@ def process_daily_earnings_api(request):
             except Wallet.DoesNotExist:
                 print(f"❌ No wallet found for {investment.user.username}")
         
-        # Auto-complete investment if expired
-        if investment.expiry_date and timezone.now() >= investment.expiry_date:
-            investment.status = 'completed'
-            investment.save()
-            print(f"📌 Investment {investment.id} auto-completed")
+        # REMOVED: Auto-expiry check - investments NEVER expire automatically!
     
     if processed > 0:
         DailyEarningsLog.objects.create(
@@ -1577,7 +1558,6 @@ def process_daily_earnings_api(request):
         'processed': processed,
         'total_earnings': float(total_earnings),
         'users_affected': len(users_affected),
-        'skipped_frozen': skipped_frozen,
         'date': str(today),
         'message': f'Processed {processed} investments, distributed KES {total_earnings:,.0f} to {len(users_affected)} users'
     })
@@ -1872,23 +1852,15 @@ def upgrade_investment(request):
             wallet.balance -= difference
             wallet.save()
         
-        now = timezone.now()
-        days_remaining = max(0, (old_investment.expiry_date - now).days)
-        days_used = old_product.get_duration() - days_remaining
-        remaining_days = new_product.get_duration() - days_used
-        if remaining_days < 0:
-            remaining_days = 0
-        
-        new_expiry = now + timedelta(days=remaining_days)
-        
         old_investment.status = 'cancelled'
         old_investment.save()
         
+        # Create new investment with NO expiry date
         new_investment = UserInvestment.objects.create(
             user=user,
             product=new_product,
             amount=new_product.min_investment,
-            expiry_date=new_expiry,
+            expiry_date=None,  # NO EXPIRY
             status='active',
             total_earned=Decimal('0')
         )
@@ -1908,8 +1880,7 @@ def upgrade_investment(request):
             'amount_paid': float(difference),
             'new_balance': float(wallet.balance),
             'daily_earnings': float(new_product.get_daily_earnings(new_product.min_investment)),
-            'expiry_date': new_expiry.strftime('%Y-%m-%d'),
-            'days_left': remaining_days
+            'message': f'Successfully upgraded to {new_product.name}. This investment will earn daily forever!'
         })
         
     except User.DoesNotExist:

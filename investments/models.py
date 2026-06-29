@@ -19,7 +19,6 @@ class UserProfile(models.Model):
     full_name = models.CharField(max_length=100, blank=True, null=True)
     id_number = models.CharField(max_length=20, blank=True, null=True)
     
-    # Referral fields
     referral_code = models.CharField(max_length=50, unique=True, blank=True, null=True)
     referred_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='referrals')
     
@@ -31,12 +30,10 @@ class UserProfile(models.Model):
     suspended_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     
-    # Password reset fields
     requires_password_reset = models.BooleanField(default=False)
     reset_token = models.CharField(max_length=100, blank=True, null=True)
     
     def generate_referral_code(self):
-        """Generate unique referral code from phone number"""
         if not self.referral_code:
             phone_suffix = self.phone_number[-6:] if len(self.phone_number) >= 6 else self.phone_number
             random_suffix = random.randint(100, 999)
@@ -52,6 +49,7 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.phone_number} ({'Approved' if self.is_approved else 'Pending'})"
 
+
 class Wallet(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='wallet')
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
@@ -62,6 +60,7 @@ class Wallet(models.Model):
     
     def __str__(self):
         return f"{self.user.username}: KES {self.balance}"
+
 
 class InvestmentProduct(models.Model):
     LEVEL_CHOICES = [
@@ -86,23 +85,20 @@ class InvestmentProduct(models.Model):
     def get_daily_earnings(self, investment_amount):
         if self.daily_earnings_amount:
             return self.daily_earnings_amount
-        # Calculate based on level if no fixed amount
         if self.level == 'platinum' or self.level == 'diamond':
-            # 5000-10000 level: 20% daily
             return investment_amount * Decimal('0.20')
         else:
-            # 1000-3000 level: 10% daily
             return investment_amount * Decimal('0.10')
     
     def get_duration(self):
-        """Return duration based on product level"""
         if self.level in ['platinum', 'diamond']:
-            return 16  # 16 days for 5000-10000
+            return 16
         else:
-            return 20  # 20 days for 1000-3000
+            return 20
     
     def __str__(self):
         return f"{self.name} - {self.get_level_display()} (KES {self.min_investment})"
+
 
 class UserInvestment(models.Model):
     STATUS_CHOICES = [
@@ -115,7 +111,7 @@ class UserInvestment(models.Model):
     product = models.ForeignKey(InvestmentProduct, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     invested_at = models.DateTimeField(auto_now_add=True)
-    expiry_date = models.DateTimeField()
+    expiry_date = models.DateTimeField(null=True, blank=True)  # NO AUTO-EXPIRY
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     total_earned = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     last_earning_date = models.DateTimeField(null=True, blank=True)
@@ -126,31 +122,19 @@ class UserInvestment(models.Model):
         return self.product.get_daily_earnings(self.amount)
     
     def get_duration_days(self):
-        """Get duration for this investment"""
         if self.product:
             return self.product.get_duration()
-        return 10  # default
+        return 20
     
-    def days_remaining(self):
-        """Calculate days remaining in investment"""
-        if self.status != 'active' or not self.expiry_date:
+    def days_active(self):
+        if self.status != 'active':
             return 0
         now = timezone.now()
-        if now >= self.expiry_date:
-            return 0
-        return (self.expiry_date - now).days
-    
-    def check_expiry(self):
-        """Auto-expire investment when duration ends"""
-        if self.status == 'active' and self.expiry_date:
-            if timezone.now() >= self.expiry_date:
-                self.status = 'completed'
-                self.save()
-                return True
-        return False
+        return (now - self.invested_at).days
     
     def __str__(self):
         return f"{self.user.username} - {self.product.name} (KES {self.amount})"
+
 
 class Deposit(models.Model):
     STATUS_CHOICES = [
@@ -184,6 +168,7 @@ class Deposit(models.Model):
     def __str__(self):
         return f"{self.user.username} - KES {self.amount} ({self.status})"
 
+
 class Withdrawal(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
@@ -202,8 +187,8 @@ class Withdrawal(models.Model):
     def __str__(self):
         return f"{self.user.username} - KES {self.amount} ({self.status})"
 
+
 class DailyEarningsLog(models.Model):
-    """Track daily earnings processing for admin"""
     processed_at = models.DateTimeField(auto_now_add=True)
     total_earnings = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     users_affected = models.IntegerField(default=0)
@@ -212,8 +197,8 @@ class DailyEarningsLog(models.Model):
     def __str__(self):
         return f"📊 {self.processed_at.date()} - KES {self.total_earnings:,.2f} to {self.users_affected} users"
 
+
 class Referral(models.Model):
-    """Tracks who referred whom with deposit/investment status"""
     referrer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referrals_made')
     referred_user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='referred_by')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -229,8 +214,8 @@ class Referral(models.Model):
         status = "✅" if self.bonus_given else "⏳" if (self.has_deposited and self.has_invested) else "📌"
         return f"{status} {self.referrer.username} → {self.referred_user.username}"
 
+
 class ReferralBonus(models.Model):
-    """Bonuses given to users for referrals"""
     STATUS_CHOICES = [
         ('pending', '⏳ Pending'),
         ('claimed', '✅ Claimed'),
@@ -238,20 +223,19 @@ class ReferralBonus(models.Model):
     
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='referral_bonuses')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=500)
-    referred_count = models.IntegerField(default=0, help_text="How many referrals triggered this bonus")
+    referred_count = models.IntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
     claimed_at = models.DateTimeField(null=True, blank=True)
     approved_by = models.CharField(max_length=100, blank=True, null=True)
-    
-    referral_ids = models.TextField(blank=True, help_text="Comma-separated IDs of referrals that triggered this bonus")
+    referral_ids = models.TextField(blank=True)
     bonus_type = models.CharField(max_length=20, default='referral')
     
     def __str__(self):
         return f"{self.user.username} - KES {self.amount} ({self.status})"
 
+
 class BalanceAdjustmentLog(models.Model):
-    """Track admin balance adjustments"""
     ACTION_CHOICES = [
         ('add', 'Added'),
         ('subtract', 'Subtracted'),
@@ -270,6 +254,7 @@ class BalanceAdjustmentLog(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.action} KES {self.amount}"
+
 
 class FraudLog(models.Model):
     ACTION_CHOICES = [
@@ -295,23 +280,21 @@ class FraudLog(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.action} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
 
+
 class PasswordReset(models.Model):
-    """Track password reset codes/tokens"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_resets')
-    code = models.CharField(max_length=200)  # UUID tokens for admin-generated links
+    code = models.CharField(max_length=200)
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
     
     def is_valid(self):
-        """Code expires after 24 hours"""
         return not self.is_used and (datetime.now() - self.created_at) < timedelta(hours=24)
     
     def __str__(self):
         return f"{self.user.username} - {self.code[:30]}... ({'Used' if self.is_used else 'Active'})"
 
-# ========== MAINTENANCE MODE MODEL ==========
+
 class MaintenanceMode(models.Model):
-    """Control system maintenance mode - when enabled, users cannot login"""
     is_enabled = models.BooleanField(default=False)
     message = models.TextField(default="We are currently performing system maintenance. Please check back shortly. We apologize for the inconvenience.")
     updated_at = models.DateTimeField(auto_now=True)
