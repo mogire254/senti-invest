@@ -79,9 +79,9 @@
   },
   {
     "user": "KES 500",
-    "balance": "1520.00",
+    "balance": "0.00",
     "deposited": "341.00",
-    "total_earned": "821.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 0",
@@ -91,9 +91,9 @@
   },
   {
     "user": "KES 0",
-    "balance": "1000.00",
+    "balance": "0.00",
     "deposited": "498.00",
-    "total_earned": "498.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 0",
@@ -211,9 +211,9 @@
   },
   {
     "user": "KES 1,000",
-    "balance": "5000.00",
+    "balance": "0.00",
     "deposited": "1100.00",
-    "total_earned": "2100.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 0",
@@ -223,9 +223,9 @@
   },
   {
     "user": "KES 290",
-    "balance": "600.00",
+    "balance": "0.00",
     "deposited": "0.00",
-    "total_earned": "210.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 0",
@@ -241,9 +241,9 @@
   },
   {
     "user": "KES 4,000",
-    "balance": "5000.00",
+    "balance": "0.00",
     "deposited": "800.00",
-    "total_earned": "4700.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 0",
@@ -259,26 +259,26 @@
   },
   {
     "user": "KES 2,000",
-    "balance": "5000.00",
+    "balance": "0.00",
     "deposited": "2300.00",
-    "total_earned": "8000.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 64",
-    "balance": "100.00",
+    "balance": "0.00",
     "deposited": "0.00",
-    "total_earned": "64.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 1,452",
-    "balance": "1500.00",
+    "balance": "0.00",
     "deposited": "300.00",
-    "total_earned": "1202.00"
+    "total_earned": "0.00"
   },
   {
     "user": "KES 907",
-    "balance": "520.00",
+    "balance": "0.00",
     "deposited": "0.00",
-    "total_earned": "357.00"
+    "total_earned": "0.00"
   }
 ]
