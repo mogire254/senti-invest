@@ -1,0 +1,162 @@
+[
+  {
+    "user": "Silver Plus - Silver Level (KES 1,000-1,500) (KES 1500.00)",
+    "product": "KES 1,500",
+    "amount": "KES 100",
+    "status": "KES 300",
+    "total_earned": "Active",
+    "invested_at": "✅ 4 days"
+  },
+  {
+    "user": "Diamond Basic - Diamond Level (KES 10,000-12,000) (KES 10000.00)",
+    "product": "KES 10,000",
+    "amount": "KES 1,000",
+    "status": "KES 3,000",
+    "total_earned": "Active",
+    "invested_at": "✅ 30 days"
+  },
+  {
+    "user": "Platinum Entry - Platinum Level (KES 5,000-8,000) (KES 5000.00)",
+    "product": "KES 5,000",
+    "amount": "KES 500",
+    "status": "KES 1,000",
+    "total_earned": "Active",
+    "invested_at": "❌ Expired"
+  },
+  {
+    "user": "Silver Plus - Silver Level (KES 1,000-1,500) (KES 1500.00)",
+    "product": "KES 1,500",
+    "amount": "KES 100",
+    "status": "KES 500",
+    "total_earned": "Active",
+    "invested_at": "✅ 8 days"
+  },
+  {
+    "user": "Silver Starter - Silver Level (KES 1,000-1,500) (KES 1000.00)",
+    "product": "KES 1,000",
+    "amount": "KES 0",
+    "status": "KES 134",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Silver Plus - Silver Level (KES 1,000-1,500) (KES 1500.00)",
+    "product": "KES 1,500",
+    "amount": "KES 100",
+    "status": "KES 800",
+    "total_earned": "Active",
+    "invested_at": "✅ 5 days"
+  },
+  {
+    "user": "Gold Pro - Gold Level (KES 2,000-3,000) (KES 3000.00)",
+    "product": "KES 3,000",
+    "amount": "KES 0",
+    "status": "KES 1,000",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Starter Pack - Bronze Level (KES 100-800) (KES 520.00)",
+    "product": "KES 520",
+    "amount": "KES 0",
+    "status": "KES 21",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Bronze Plus - Bronze Level (KES 100-800) (KES 400.00)",
+    "product": "KES 400",
+    "amount": "KES 0",
+    "status": "KES 64",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Platinum Entry - Platinum Level (KES 5,000-8,000) (KES 5000.00)",
+    "product": "KES 5,000",
+    "amount": "KES 500",
+    "status": "KES 4,500",
+    "total_earned": "Active",
+    "invested_at": "❌ Expired"
+  },
+  {
+    "user": "Silver Plus - Silver Level (KES 1,000-1,500) (KES 1500.00)",
+    "product": "KES 1,500",
+    "amount": "KES 0",
+    "status": "KES 100",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Silver Plus - Silver Level (KES 1,000-1,500) (KES 1500.00)",
+    "product": "KES 1,500",
+    "amount": "KES 100",
+    "status": "KES 500",
+    "total_earned": "Active",
+    "invested_at": "❌ Expired"
+  },
+  {
+    "user": "Starter Pack - Bronze Level (KES 100-800) (KES 520.00)",
+    "product": "KES 520",
+    "amount": "KES 21",
+    "status": "KES 210",
+    "total_earned": "Active",
+    "invested_at": "✅ 15 days"
+  },
+  {
+    "user": "Gold Pro - Gold Level (KES 2,000-3,000) (KES 3000.00)",
+    "product": "KES 3,000",
+    "amount": "KES 0",
+    "status": "KES 200",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Bronze Fund - Bronze Level (KES 100-800) (KES 800.00)",
+    "product": "KES 800",
+    "amount": "KES 0",
+    "status": "KES 160",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Platinum Entry - Platinum Level (KES 5,000-8,000) (KES 5000.00)",
+    "product": "KES 5,000",
+    "amount": "KES 0",
+    "status": "KES 5,000",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Micro Starter - Bronze Level (KES 100-800) (KES 100.00)",
+    "product": "KES 100",
+    "amount": "KES 4",
+    "status": "KES 64",
+    "total_earned": "Active",
+    "invested_at": "✅ 8 days"
+  },
+  {
+    "user": "Starter Pack - Bronze Level (KES 100-800) (KES 520.00)",
+    "product": "KES 520",
+    "amount": "KES 0",
+    "status": "KES 42",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Bronze Standard - Bronze Level (KES 100-800) (KES 300.00)",
+    "product": "KES 300",
+    "amount": "KES 0",
+    "status": "KES 0",
+    "total_earned": "Cancelled",
+    "invested_at": "N/A"
+  },
+  {
+    "user": "Starter Pack - Bronze Level (KES 100-800) (KES 520.00)",
+    "product": "KES 520",
+    "amount": "KES 21",
+    "status": "KES 357",
+    "total_earned": "Active",
+    "invested_at": "✅ 7 days"
+  }
+]
