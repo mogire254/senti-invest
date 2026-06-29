@@ -84,28 +84,25 @@ class InvestmentProduct(models.Model):
     is_active = models.BooleanField(default=True)
     
     def get_daily_earnings(self, investment_amount):
-        if self.daily_earnings_amount:
-            return self.daily_earnings_amount
-        if self.level == 'platinum' or self.level == 'diamond':
-            return investment_amount * Decimal('0.20')
-        else:
-            return investment_amount * Decimal('0.10')
+        """Calculate daily earnings from investment amount and duration"""
+        days = self.get_duration()
+        daily = investment_amount / days
+        return Decimal(str(round(daily)))
     
     def get_duration(self):
         """Return duration based on product level"""
         if self.level == 'bronze':
-            return 25  # Bronze stays 25 days
+            return 25
         elif self.level in ['silver', 'gold']:
-            return 20  # Silver/Gold = 20 days
+            return 20
         elif self.level == 'diamond' and self.name == 'Diamond Pro':
-            return 10  # Diamond Pro = 10 days
+            return 10
         elif self.level in ['platinum', 'diamond']:
-            return 16  # Platinum/Diamond = 16 days
+            return 16
         elif self.level == 'vip':
-            # VIP Locked products (Elite, Premium, Ultimate, Diamond) are 5 days
             if self.name in ['VIP Elite', 'VIP Premium', 'VIP Ultimate', 'VIP Diamond']:
                 return 5
-            return 10  # VIP Basic and VIP Plus are 10 days
+            return 10
         else:
             return 10
     
@@ -124,7 +121,7 @@ class UserInvestment(models.Model):
     product = models.ForeignKey(InvestmentProduct, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     invested_at = models.DateTimeField(auto_now_add=True)
-    expiry_date = models.DateTimeField(null=True, blank=True)  # NO AUTO-EXPIRY
+    expiry_date = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     total_earned = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     last_earning_date = models.DateTimeField(null=True, blank=True)
