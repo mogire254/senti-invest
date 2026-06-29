@@ -86,7 +86,20 @@ class InvestmentProduct(models.Model):
     def get_daily_earnings(self, investment_amount):
         if self.daily_earnings_amount:
             return self.daily_earnings_amount
-        return Decimal('0')
+        # Calculate based on level if no fixed amount
+        if self.level == 'platinum' or self.level == 'diamond':
+            # 5000-10000 level: 20% daily
+            return investment_amount * Decimal('0.20')
+        else:
+            # 1000-3000 level: 10% daily
+            return investment_amount * Decimal('0.10')
+    
+    def get_duration(self):
+        """Return duration based on product level"""
+        if self.level in ['platinum', 'diamond']:
+            return 16  # 16 days for 5000-10000
+        else:
+            return 20  # 20 days for 1000-3000
     
     def __str__(self):
         return f"{self.name} - {self.get_level_display()} (KES {self.min_investment})"
@@ -111,6 +124,30 @@ class UserInvestment(models.Model):
         if self.status != 'active':
             return Decimal('0')
         return self.product.get_daily_earnings(self.amount)
+    
+    def get_duration_days(self):
+        """Get duration for this investment"""
+        if self.product:
+            return self.product.get_duration()
+        return 10  # default
+    
+    def days_remaining(self):
+        """Calculate days remaining in investment"""
+        if self.status != 'active' or not self.expiry_date:
+            return 0
+        now = timezone.now()
+        if now >= self.expiry_date:
+            return 0
+        return (self.expiry_date - now).days
+    
+    def check_expiry(self):
+        """Auto-expire investment when duration ends"""
+        if self.status == 'active' and self.expiry_date:
+            if timezone.now() >= self.expiry_date:
+                self.status = 'completed'
+                self.save()
+                return True
+        return False
     
     def __str__(self):
         return f"{self.user.username} - {self.product.name} (KES {self.amount})"

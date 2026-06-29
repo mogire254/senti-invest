@@ -363,21 +363,21 @@ function App() {
 
   const loadProducts = async () => {
     const productList = [
-      { id: 1, name: 'Micro Starter', min_investment: 100, daily_earnings: 4, level: 'bronze', duration_days: 25, locked: false },
-      { id: 2, name: 'Micro Plus', min_investment: 150, daily_earnings: 6, level: 'bronze', duration_days: 25, locked: false },
-      { id: 3, name: 'Bronze Micro', min_investment: 200, daily_earnings: 8, level: 'bronze', duration_days: 25, locked: false },
-      { id: 4, name: 'Bronze Standard', min_investment: 300, daily_earnings: 12, level: 'bronze', duration_days: 25, locked: false },
-      { id: 5, name: 'Bronze Plus', min_investment: 400, daily_earnings: 16, level: 'bronze', duration_days: 25, locked: false },
-      { id: 6, name: 'Starter Pack', min_investment: 520, daily_earnings: 21, level: 'bronze', duration_days: 25, locked: false },
-      { id: 7, name: 'Bronze Fund', min_investment: 800, daily_earnings: 32, level: 'bronze', duration_days: 25, locked: false },
-      { id: 8, name: 'Silver Starter', min_investment: 1000, daily_earnings: 67, level: 'silver', duration_days: 15, locked: false },
-      { id: 9, name: 'Silver Plus', min_investment: 1500, daily_earnings: 100, level: 'silver', duration_days: 15, locked: false },
-      { id: 10, name: 'Gold Basic', min_investment: 2000, daily_earnings: 133, level: 'gold', duration_days: 15, locked: false },
-      { id: 11, name: 'Gold Pro', min_investment: 3000, daily_earnings: 200, level: 'gold', duration_days: 15, locked: false },
-      { id: 12, name: 'Platinum Entry', min_investment: 5000, daily_earnings: 500, level: 'platinum', duration_days: 10, locked: false },
-      { id: 13, name: 'Platinum Plus', min_investment: 8000, daily_earnings: 800, level: 'platinum', duration_days: 10, locked: false },
-      { id: 14, name: 'Diamond Basic', min_investment: 10000, daily_earnings: 1000, level: 'diamond', duration_days: 10, locked: false },
-      { id: 15, name: 'Diamond Pro', min_investment: 12000, daily_earnings: 1200, level: 'diamond', duration_days: 10, locked: false },
+      { id: 1, name: 'Micro Starter', min_investment: 100, daily_earnings: 4, level: 'bronze', duration_days: 20, locked: false },
+      { id: 2, name: 'Micro Plus', min_investment: 150, daily_earnings: 6, level: 'bronze', duration_days: 20, locked: false },
+      { id: 3, name: 'Bronze Micro', min_investment: 200, daily_earnings: 8, level: 'bronze', duration_days: 20, locked: false },
+      { id: 4, name: 'Bronze Standard', min_investment: 300, daily_earnings: 12, level: 'bronze', duration_days: 20, locked: false },
+      { id: 5, name: 'Bronze Plus', min_investment: 400, daily_earnings: 16, level: 'bronze', duration_days: 20, locked: false },
+      { id: 6, name: 'Starter Pack', min_investment: 520, daily_earnings: 21, level: 'bronze', duration_days: 20, locked: false },
+      { id: 7, name: 'Bronze Fund', min_investment: 800, daily_earnings: 32, level: 'bronze', duration_days: 20, locked: false },
+      { id: 8, name: 'Silver Starter', min_investment: 1000, daily_earnings: 67, level: 'silver', duration_days: 20, locked: false },
+      { id: 9, name: 'Silver Plus', min_investment: 1500, daily_earnings: 100, level: 'silver', duration_days: 20, locked: false },
+      { id: 10, name: 'Gold Basic', min_investment: 2000, daily_earnings: 133, level: 'gold', duration_days: 20, locked: false },
+      { id: 11, name: 'Gold Pro', min_investment: 3000, daily_earnings: 200, level: 'gold', duration_days: 20, locked: false },
+      { id: 12, name: 'Platinum Entry', min_investment: 5000, daily_earnings: 1000, level: 'platinum', duration_days: 16, locked: false },
+      { id: 13, name: 'Platinum Plus', min_investment: 8000, daily_earnings: 1600, level: 'platinum', duration_days: 16, locked: false },
+      { id: 14, name: 'Diamond Basic', min_investment: 10000, daily_earnings: 2000, level: 'diamond', duration_days: 16, locked: false },
+      { id: 15, name: 'Diamond Pro', min_investment: 12000, daily_earnings: 2400, level: 'diamond', duration_days: 16, locked: false },
       { id: 16, name: 'VIP Basic', min_investment: 15000, daily_earnings: 1500, level: 'vip', duration_days: 10, locked: false },
       { id: 17, name: 'VIP Plus', min_investment: 20000, daily_earnings: 2000, level: 'vip', duration_days: 10, locked: false },
       { id: 18, name: 'VIP Elite', min_investment: 30000, daily_earnings: 6000, level: 'vip', duration_days: 5, locked: true },
@@ -474,7 +474,7 @@ function App() {
     }
   };
 
-  // ========== STEP 2: VERIFY DEPOSIT - FIXED WITH CORRECT ENDPOINT ==========
+  // ========== STEP 2: VERIFY DEPOSIT ==========
   const verifyDeposit = async () => {
     if (!mpesaMessage || mpesaMessage.length < 20) {
       showMessage('Please paste your full M-Pesa confirmation message', 'error');
@@ -483,11 +483,7 @@ function App() {
     
     setIsVerifyingPayment(true);
     
-    // Show waiting message
-    showMessage('⏳ Verifying your payment... Please wait', 'info');
-    
     try {
-      // FIXED: Using correct endpoint /verify-manual-payment/
       const response = await axios.post(`${API_URL}/verify-manual-payment/`, {
         user_id: userId,
         amount: parseFloat(depositAmount),
@@ -496,18 +492,15 @@ function App() {
       });
       
       if (response.data.success) {
-        // Extract transaction ID from response
         const transactionId = response.data.transaction_id || 'Processing';
         showMessage(`✅ Payment recorded! Transaction ID: ${transactionId}\n\n⏳ Admin will review and approve your deposit shortly.`, 'success');
         
-        // Clear form
         setMpesaMessage('');
         setShowRequestSubmitted(false);
         setDepositAmount('');
         setMpesaPhone('');
         setCurrentDepositId(null);
         
-        // Refresh dashboard after 5 seconds
         setTimeout(() => {
           loadDashboardData(userId);
           showMessage('🔄 Balance refreshed. Check your wallet.', 'info');
@@ -909,7 +902,7 @@ function App() {
           <>
             <div className="section-header">
               <h1>Investment Products</h1>
-              <p>25 days (100-800) | 15 days (1,000-3,000) | 10 days (5,000-20,000) | 5 days (30,000-100,000 - Coming Soon)</p>
+              <p>20 days (100-3,000) | 16 days (5,000-12,000) | 10 days (15,000-20,000) | 5 days (30,000-100,000 - Coming Soon)</p>
               <p className="coming-soon-note">🔒 Products with lock icon are coming soon - Admin will announce when available</p>
             </div>
             <div className="products-grid">
@@ -950,7 +943,6 @@ function App() {
                     <p>💰 Investment: <strong>{formatCurrency(selectedProduct.min_investment)}</strong></p>
                     <p>📈 Daily Return: <strong className="highlight">{formatCurrency(selectedProduct.daily_earnings)}</strong></p>
                     <p>⏱️ Duration: <strong>{selectedProduct.duration_days} days</strong></p>
-                    <p>🎯 Total Return: <strong>{formatCurrency(selectedProduct.min_investment * 1.2)}</strong></p>
                     <p>💵 Your Balance: <strong>{formatCurrency(balance)}</strong></p>
                   </div>
                   <input type="number" placeholder={`Enter ${formatCurrency(selectedProduct.min_investment)}`} className="auth-input" value={investAmount} onChange={(e) => setInvestAmount(e.target.value)} />
@@ -965,98 +957,93 @@ function App() {
         )}
 
         {/* My Investments Page */}
-{currentPage === 'investments' && (
-  <>
-    <div className="section-header">
-      <h1>My Investments</h1>
-      <p>Track your active investments</p>
-    </div>
-    
-    {(() => {
-      const calculateAccumulatedEarnings = () => {
-        if (activeInvestments.length === 0) return 0;
-        
-        // Get the earliest investment date
-        const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
-        const today = new Date();
-        
-        // Calculate days since first investment
-        let daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
-        
-        // If investment was made today or daysSinceFirst is 0, show at least 1 day
-        if (daysSinceFirst < 1 && activeInvestments.length > 0) {
-          daysSinceFirst = 1;
-        }
-        
-        // Accumulated earnings = daily earnings × days since first investment
-        return dailyEarnings * daysSinceFirst;
-      };
-      
-      const accumulatedEarnings = calculateAccumulatedEarnings();
-      
-      // Calculate days for display
-      const getDaysDisplay = () => {
-        if (activeInvestments.length === 0) return 0;
-        const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
-        const today = new Date();
-        let days = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
-        if (days < 1) days = 1;
-        return days;
-      };
-      
-      const daysCount = getDaysDisplay();
-      
-      return (
-        <div className="investments-stats-row">
-          <div className="investments-stat-card daily">
-            <p className="stat-label">Total Daily Earnings</p>
-            <h2>{formatCurrency(dailyEarnings)}</h2>
-            <small>You earn this EVERY DAY</small>
-          </div>
-          <div className="investments-stat-card accumulated">
-            <p className="stat-label">Accumulated Daily Earnings</p>
-            <h2>{formatCurrency(accumulatedEarnings)}</h2>
-            <small>{formatCurrency(dailyEarnings)} × {daysCount} day{daysCount !== 1 ? 's' : ''}</small>
-          </div>
-        </div>
-      );
-    })()}
-    
-    {isLoading ? (
-      <div className="empty-state"><p>Loading investments...</p></div>
-    ) : activeInvestments.length === 0 ? (
-      <div className="empty-state">
-        <p>No active investments yet.</p>
-        <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
-      </div>
-    ) : (
-      <div className="investments-grid">
-        {activeInvestments.map(inv => (
-          <div key={inv.id} className="investment-card-square">
-            <div className="investment-header">
-              <div>
-                <h3>{inv.product_name}</h3>
-                <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
-              </div>
-              <div className="investment-amount">{formatCurrency(inv.amount)}</div>
+        {currentPage === 'investments' && (
+          <>
+            <div className="section-header">
+              <h1>My Investments</h1>
+              <p>Track your active investments</p>
             </div>
-            <div className="investment-stats-square">
-              <div className="stat-item">
-                <p className="stat-label">Daily Earnings</p>
-                <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
+            
+            {(() => {
+              const calculateAccumulatedEarnings = () => {
+                if (activeInvestments.length === 0) return 0;
+                
+                const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
+                const today = new Date();
+                
+                let daysSinceFirst = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
+                
+                if (daysSinceFirst < 1 && activeInvestments.length > 0) {
+                  daysSinceFirst = 1;
+                }
+                
+                return dailyEarnings * daysSinceFirst;
+              };
+              
+              const accumulatedEarnings = calculateAccumulatedEarnings();
+              
+              const getDaysDisplay = () => {
+                if (activeInvestments.length === 0) return 0;
+                const firstDate = new Date(Math.min(...activeInvestments.map(inv => new Date(inv.invested_at))));
+                const today = new Date();
+                let days = Math.floor((today - firstDate) / (1000 * 60 * 60 * 24));
+                if (days < 1) days = 1;
+                return days;
+              };
+              
+              const daysCount = getDaysDisplay();
+              
+              return (
+                <div className="investments-stats-row">
+                  <div className="investments-stat-card daily">
+                    <p className="stat-label">Total Daily Earnings</p>
+                    <h2>{formatCurrency(dailyEarnings)}</h2>
+                    <small>You earn this EVERY DAY</small>
+                  </div>
+                  <div className="investments-stat-card accumulated">
+                    <p className="stat-label">Accumulated Daily Earnings</p>
+                    <h2>{formatCurrency(accumulatedEarnings)}</h2>
+                    <small>{formatCurrency(dailyEarnings)} × {daysCount} day{daysCount !== 1 ? 's' : ''}</small>
+                  </div>
+                </div>
+              );
+            })()}
+            
+            {isLoading ? (
+              <div className="empty-state"><p>Loading investments...</p></div>
+            ) : activeInvestments.length === 0 ? (
+              <div className="empty-state">
+                <p>No active investments yet.</p>
+                <button className="btn-primary" onClick={() => setCurrentPage('products')}>Browse Products</button>
               </div>
-            </div>
-            {inv.product_level !== 'vip' && (
-              <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
+            ) : (
+              <div className="investments-grid">
+                {activeInvestments.map(inv => (
+                  <div key={inv.id} className="investment-card-square">
+                    <div className="investment-header">
+                      <div>
+                        <h3>{inv.product_name}</h3>
+                        <span className="level-badge" style={{ background: getLevelColor(inv.product_level?.toLowerCase()) }}>{inv.product_level}</span>
+                      </div>
+                      <div className="investment-amount">{formatCurrency(inv.amount)}</div>
+                    </div>
+                    <div className="investment-stats-square">
+                      <div className="stat-item">
+                        <p className="stat-label">Daily Earnings</p>
+                        <p className="stat-value daily-earnings-value">{formatCurrency(inv.daily_earnings)}</p>
+                      </div>
+                    </div>
+                    {inv.product_level !== 'vip' && (
+                      <button className="upgrade-btn-square" onClick={() => openUpgradeModal(inv)}>⬆️ Upgrade</button>
+                    )}
+                  </div>
+                ))}
+              </div>
             )}
-          </div>
-        ))}
-      </div>
-    )}
-  </>
-)}
+          </>
+        )}
 
-        {/* Deposit Page - 2-STEP FLOW with FIXED verification */}
+        {/* Deposit Page */}
         {currentPage === 'deposit' && (
           <div className="deposit-container">
             <div className="transaction-card">
@@ -1081,55 +1068,55 @@ function App() {
               </div>
               
               {/* SECTION 1: SUBMIT DEPOSIT REQUEST */}
-<div className="deposit-request-section">
-  <h3>Step 1: Request Deposit Approval</h3>
-  <div className="deposit-form">
-    <div className="form-group">
-      <label>Amount (KES) *</label>
-      <input 
-        type="number" 
-        placeholder="Enter amount (min KES 100)" 
-        className="auth-input" 
-        value={depositAmount} 
-        onChange={(e) => setDepositAmount(e.target.value)} 
-        disabled={showRequestSubmitted}
-      />
-    </div>
-    
-    <div className="form-group">
-      <label>Your M-Pesa Phone Number *</label>
-      <input 
-        type="tel" 
-        placeholder="e.g., 0712345678" 
-        className="auth-input" 
-        value={mpesaPhone} 
-        onChange={(e) => setMpesaPhone(e.target.value)} 
-        disabled={showRequestSubmitted}
-      />
-    </div>
-    
-    {!showRequestSubmitted ? (
-      <button 
-        className="btn-primary" 
-        onClick={submitDepositRequest} 
-        disabled={isSubmittingRequest}
-      >
-        {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
-      </button>
-    ) : (
-      <div className="check-phone-message">
-        <div className="check-phone-icon">📱</div>
-        <div className="check-phone-text">
-          <strong>CHECK YOUR PHONE</strong><br />
-          Complete the M-PESA transaction on your phone.<br />
-          Then paste the confirmation message below.
-        </div>
-      </div>
-    )}
-  </div>
-</div>
+              <div className="deposit-request-section">
+                <h3>Step 1: Request Deposit Approval</h3>
+                <div className="deposit-form">
+                  <div className="form-group">
+                    <label>Amount (KES) *</label>
+                    <input 
+                      type="number" 
+                      placeholder="Enter amount (min KES 100)" 
+                      className="auth-input" 
+                      value={depositAmount} 
+                      onChange={(e) => setDepositAmount(e.target.value)} 
+                      disabled={showRequestSubmitted}
+                    />
+                  </div>
+                  
+                  <div className="form-group">
+                    <label>Your M-Pesa Phone Number *</label>
+                    <input 
+                      type="tel" 
+                      placeholder="e.g., 0712345678" 
+                      className="auth-input" 
+                      value={mpesaPhone} 
+                      onChange={(e) => setMpesaPhone(e.target.value)} 
+                      disabled={showRequestSubmitted}
+                    />
+                  </div>
+                  
+                  {!showRequestSubmitted ? (
+                    <button 
+                      className="btn-primary" 
+                      onClick={submitDepositRequest} 
+                      disabled={isSubmittingRequest}
+                    >
+                      {isSubmittingRequest ? 'Submitting...' : 'Submit Deposit Request'}
+                    </button>
+                  ) : (
+                    <div className="check-phone-message">
+                      <div className="check-phone-icon">📱</div>
+                      <div className="check-phone-text">
+                        <strong>CHECK YOUR PHONE</strong><br />
+                        Complete the M-PESA transaction on your phone.<br />
+                        Then paste the confirmation message below.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               
-              {/* SECTION 2: VERIFY PAYMENT - Only show after step 1 submitted */}
+              {/* SECTION 2: VERIFY PAYMENT */}
               {showRequestSubmitted && (
                 <div className="verify-payment-section">
                   <h3>Step 2: Verify Payment</h3>
@@ -1165,133 +1152,133 @@ function App() {
           </div>
         )}
 
-        {/* Withdraw Page - Updated with prettier history */}
-{currentPage === 'withdraw' && (
-  <div className="withdraw-container">
-    <div className="transaction-card">
-      <h2>Withdraw Funds</h2>
-      <div className="withdraw-info-note">
-        <p>⏰ <strong>Processing Time:</strong> 1 - 12 hours</p>
-        <p>💰 <strong>Minimum Withdrawal:</strong> KES 300</p>
-        <p>📱 Funds will be sent to your M-Pesa number after admin approval</p>
-      </div>
-      <p>Available balance: <strong>{formatCurrency(balance)}</strong></p>
-      <input 
-        type="number" 
-        placeholder="Amount (KES)" 
-        className="auth-input" 
-        value={withdrawAmount} 
-        onChange={(e) => setWithdrawAmount(e.target.value)} 
-      />
-      <input 
-        type="tel" 
-        placeholder="M-Pesa Phone Number" 
-        className="auth-input" 
-        value={withdrawPhone} 
-        onChange={(e) => setWithdrawPhone(e.target.value)} 
-      />
-      <button className="btn-primary" onClick={handleWithdraw} disabled={isLoading}>
-        {isLoading ? 'Processing...' : 'Request Withdrawal'}
-      </button>
-    </div>
+        {/* Withdraw Page */}
+        {currentPage === 'withdraw' && (
+          <div className="withdraw-container">
+            <div className="transaction-card">
+              <h2>Withdraw Funds</h2>
+              <div className="withdraw-info-note">
+                <p>⏰ <strong>Processing Time:</strong> 1 - 12 hours</p>
+                <p>💰 <strong>Minimum Withdrawal:</strong> KES 300</p>
+                <p>📱 Funds will be sent to your M-Pesa number after admin approval</p>
+              </div>
+              <p>Available balance: <strong>{formatCurrency(balance)}</strong></p>
+              <input 
+                type="number" 
+                placeholder="Amount (KES)" 
+                className="auth-input" 
+                value={withdrawAmount} 
+                onChange={(e) => setWithdrawAmount(e.target.value)} 
+              />
+              <input 
+                type="tel" 
+                placeholder="M-Pesa Phone Number" 
+                className="auth-input" 
+                value={withdrawPhone} 
+                onChange={(e) => setWithdrawPhone(e.target.value)} 
+              />
+              <button className="btn-primary" onClick={handleWithdraw} disabled={isLoading}>
+                {isLoading ? 'Processing...' : 'Request Withdrawal'}
+              </button>
+            </div>
 
-    {/* Withdrawal History - Improved Design */}
-    <div className="withdrawal-history">
-      <div className="history-header" onClick={() => setShowWithdrawalHistory(!showWithdrawalHistory)}>
-        <h3>📋 Withdrawal History</h3>
-        <span className={`history-toggle ${showWithdrawalHistory ? 'open' : ''}`}>▼</span>
-      </div>
-      
-      {showWithdrawalHistory && (
-        <div className="history-list">
-          {withdrawalHistory.length === 0 ? (
-            <div className="empty-history">
-              <div className="empty-icon">💸</div>
-              <p>No withdrawal requests yet.</p>
-              <p className="empty-note">Your withdrawal history will appear here</p>
-            </div>
-          ) : (
-            <div className="history-cards">
-              {withdrawalHistory.map((withdrawal, index) => {
-                const date = new Date(withdrawal.created_at);
-                const formattedDate = date.toLocaleDateString('en-KE', { 
-                  year: 'numeric', 
-                  month: 'short', 
-                  day: 'numeric' 
-                });
-                const formattedTime = date.toLocaleTimeString('en-KE', { 
-                  hour: '2-digit', 
-                  minute: '2-digit'
-                });
-                
-                let statusColor = '';
-                let statusIcon = '';
-                let statusLabel = '';
-                
-                if (withdrawal.status === 'pending') {
-                  statusColor = '#f59e0b';
-                  statusIcon = '⏳';
-                  statusLabel = 'Pending';
-                } else if (withdrawal.status === 'approved') {
-                  statusColor = '#10b981';
-                  statusIcon = '✅';
-                  statusLabel = 'Approved';
-                } else if (withdrawal.status === 'rejected') {
-                  statusColor = '#ef4444';
-                  statusIcon = '❌';
-                  statusLabel = 'Rejected';
-                }
-                
-                return (
-                  <div key={withdrawal.id || index} className={`history-card status-${withdrawal.status}`}>
-                    <div className="history-card-header">
-                      <div className="history-amount">
-                        <span className="amount-label">Amount</span>
-                        <span className="amount-value">{formatCurrency(withdrawal.amount)}</span>
-                      </div>
-                      <div className="history-status" style={{ backgroundColor: statusColor }}>
-                        <span>{statusIcon} {statusLabel}</span>
-                      </div>
+            {/* Withdrawal History */}
+            <div className="withdrawal-history">
+              <div className="history-header" onClick={() => setShowWithdrawalHistory(!showWithdrawalHistory)}>
+                <h3>📋 Withdrawal History</h3>
+                <span className={`history-toggle ${showWithdrawalHistory ? 'open' : ''}`}>▼</span>
+              </div>
+              
+              {showWithdrawalHistory && (
+                <div className="history-list">
+                  {withdrawalHistory.length === 0 ? (
+                    <div className="empty-history">
+                      <div className="empty-icon">💸</div>
+                      <p>No withdrawal requests yet.</p>
+                      <p className="empty-note">Your withdrawal history will appear here</p>
                     </div>
-                    <div className="history-card-body">
-                      <div className="history-detail">
-                        <span className="detail-icon">📱</span>
-                        <span className="detail-text">{withdrawal.phone_number}</span>
-                      </div>
-                      <div className="history-detail">
-                        <span className="detail-icon">📅</span>
-                        <span className="detail-text">{formattedDate}</span>
-                      </div>
-                      <div className="history-detail">
-                        <span className="detail-icon">🕐</span>
-                        <span className="detail-text">{formattedTime}</span>
-                      </div>
+                  ) : (
+                    <div className="history-cards">
+                      {withdrawalHistory.map((withdrawal, index) => {
+                        const date = new Date(withdrawal.created_at);
+                        const formattedDate = date.toLocaleDateString('en-KE', { 
+                          year: 'numeric', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        });
+                        const formattedTime = date.toLocaleTimeString('en-KE', { 
+                          hour: '2-digit', 
+                          minute: '2-digit'
+                        });
+                        
+                        let statusColor = '';
+                        let statusIcon = '';
+                        let statusLabel = '';
+                        
+                        if (withdrawal.status === 'pending') {
+                          statusColor = '#f59e0b';
+                          statusIcon = '⏳';
+                          statusLabel = 'Pending';
+                        } else if (withdrawal.status === 'approved') {
+                          statusColor = '#10b981';
+                          statusIcon = '✅';
+                          statusLabel = 'Approved';
+                        } else if (withdrawal.status === 'rejected') {
+                          statusColor = '#ef4444';
+                          statusIcon = '❌';
+                          statusLabel = 'Rejected';
+                        }
+                        
+                        return (
+                          <div key={withdrawal.id || index} className={`history-card status-${withdrawal.status}`}>
+                            <div className="history-card-header">
+                              <div className="history-amount">
+                                <span className="amount-label">Amount</span>
+                                <span className="amount-value">{formatCurrency(withdrawal.amount)}</span>
+                              </div>
+                              <div className="history-status" style={{ backgroundColor: statusColor }}>
+                                <span>{statusIcon} {statusLabel}</span>
+                              </div>
+                            </div>
+                            <div className="history-card-body">
+                              <div className="history-detail">
+                                <span className="detail-icon">📱</span>
+                                <span className="detail-text">{withdrawal.phone_number}</span>
+                              </div>
+                              <div className="history-detail">
+                                <span className="detail-icon">📅</span>
+                                <span className="detail-text">{formattedDate}</span>
+                              </div>
+                              <div className="history-detail">
+                                <span className="detail-icon">🕐</span>
+                                <span className="detail-text">{formattedTime}</span>
+                              </div>
+                            </div>
+                            {withdrawal.status === 'pending' && (
+                              <div className="history-card-footer pending">
+                                ⏳ Waiting for admin approval
+                              </div>
+                            )}
+                            {withdrawal.status === 'approved' && (
+                              <div className="history-card-footer approved">
+                                ✅ Money sent to your M-Pesa
+                              </div>
+                            )}
+                            {withdrawal.status === 'rejected' && (
+                              <div className="history-card-footer rejected">
+                                ❌ Contact support for assistance
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
-                    {withdrawal.status === 'pending' && (
-                      <div className="history-card-footer pending">
-                        ⏳ Waiting for admin approval
-                      </div>
-                    )}
-                    {withdrawal.status === 'approved' && (
-                      <div className="history-card-footer approved">
-                        ✅ Money sent to your M-Pesa
-                      </div>
-                    )}
-                    {withdrawal.status === 'rejected' && (
-                      <div className="history-card-footer rejected">
-                        ❌ Contact support for assistance
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
-)}
+          </div>
+        )}
 
         {/* Referrals Page */}
         {currentPage === 'referrals' && (

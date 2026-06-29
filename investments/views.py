@@ -53,7 +53,7 @@ def extract_transaction_id(mpesa_message):
     
     return None
 
-# ========== VALIDATE M-PESA MESSAGE (Internal validation only - no till numbers) ==========
+# ========== VALIDATE M-PESA MESSAGE ==========
 def validate_mpesa_message(mpesa_message, expected_amount=None):
     """Validate M-Pesa message - validates merchant names only, no till numbers"""
     if not mpesa_message:
@@ -684,7 +684,6 @@ def submit_deposit_request(request):
         
         print(f"✅ Deposit request created: {user.username} - KES {amount:,.0f}")
         
-        # UPDATED: Removed the success message that caused the popup
         return Response({
             'success': True,
             'request_id': request_id,
@@ -695,7 +694,6 @@ def submit_deposit_request(request):
     except Exception as e:
         print(f"❌ Submit deposit request error: {str(e)}")
         return Response({'error': str(e)}, status=500)
-
 
 # ========== NEW DEPOSIT SYSTEM (Step 2: Verify Payment) ==========
 @api_view(['POST'])
@@ -764,7 +762,6 @@ def verify_deposit_payment(request):
         
         print(f"✅ Deposit verified: {user.username} - KES {pending_deposit.amount:,.0f} - Transaction ID: {real_transaction_id} - Waiting for admin approval")
         
-        # User-friendly response - NO till numbers or merchant names shown
         return Response({
             'success': True,
             'message': f'✅ Your M-Pesa payment has been recorded successfully.\n\n📋 Transaction ID: {real_transaction_id}\n💰 Amount: KES {pending_deposit.amount:,.0f}\n\n⏳ Please wait for admin approval. Funds will appear in your wallet after approval.',
@@ -777,7 +774,6 @@ def verify_deposit_payment(request):
     except Exception as e:
         print(f"❌ Verify deposit error: {str(e)}")
         return Response({'error': str(e)}, status=500)
-
 
 # ========== CHECK DEPOSIT STATUS ==========
 @api_view(['GET'])
@@ -823,7 +819,6 @@ def check_deposit_status(request):
     except Exception as e:
         print(f"❌ Check deposit status error: {str(e)}")
         return Response({'error': str(e)}, status=500)
-
 
 # ========== ADMIN APPROVE DEPOSIT ==========
 @api_view(['POST'])
@@ -880,7 +875,6 @@ def admin_approve_deposit(request):
         print(f"❌ Admin approve deposit error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-
 # ========== ADMIN REJECT DEPOSIT ==========
 @api_view(['POST'])
 def admin_reject_deposit(request):
@@ -926,7 +920,6 @@ def admin_reject_deposit(request):
         print(f"❌ Admin reject deposit error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-
 # ========== GET PENDING DEPOSITS FOR ADMIN ==========
 @api_view(['GET'])
 def admin_get_pending_deposits(request):
@@ -963,7 +956,6 @@ def admin_get_pending_deposits(request):
         print(f"❌ Get pending deposits error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-
 # ========== ADMIN GET ALL WALLETS ==========
 @api_view(['GET'])
 def admin_get_all_wallets(request):
@@ -998,8 +990,7 @@ def admin_get_all_wallets(request):
         print(f"❌ Get all wallets error: {str(e)}")
         return Response({'error': str(e)}, status=500)
 
-
-# ========== LEGACY DEPOSIT FUNCTIONS (Keep for compatibility) ==========
+# ========== LEGACY DEPOSIT FUNCTIONS ==========
 @api_view(['POST'])
 def request_mpesa_deposit(request):
     """Legacy deposit endpoint"""
@@ -1009,7 +1000,6 @@ def request_mpesa_deposit(request):
 def verify_mpesa_payment(request):
     """Legacy verify endpoint"""
     return Response({'error': 'Please use the new deposit system'}, status=400)
-
 
 # ========== ACCOUNT STATUS FUNCTIONS ==========
 @api_view(['GET'])
@@ -1094,7 +1084,7 @@ def get_products(request):
             'min_investment': float(p.min_investment),
             'max_investment': float(p.max_investment) if p.max_investment else None,
             'daily_earnings': float(p.daily_earnings_amount) if p.daily_earnings_amount else 0,
-            'duration_days': p.duration_days,
+            'duration_days': p.get_duration(),
             'description': p.description,
             'image_url': p.image_url
         })
@@ -1103,7 +1093,7 @@ def get_products(request):
 
 @api_view(['POST'])
 def invest_product(request):
-    """Invest in a product"""
+    """Invest in a product with proper duration based on level"""
     user_id = request.data.get('user_id')
     product_id = request.data.get('product_id')
     amount = Decimal(str(request.data.get('amount', 0)))
@@ -1136,14 +1126,26 @@ def invest_product(request):
     wallet.total_invested = (wallet.total_invested or 0) + amount
     wallet.save()
     
-    expiry = timezone.now() + timedelta(days=product.duration_days)
+    # Get duration based on product level
+    duration_days = product.get_duration()
+    
+    # Calculate daily earnings
+    daily_earnings = product.get_daily_earnings(amount)
+    
+    # Round daily earnings: if decimal >= 5, round up
+    if daily_earnings:
+        daily_earnings = Decimal(str(round(float(daily_earnings), 2)))
+    
+    expiry = timezone.now() + timedelta(days=duration_days)
+    
     investment = UserInvestment.objects.create(
         user=user,
         product=product,
         amount=amount,
         expiry_date=expiry,
         status='active',
-        total_earned=Decimal('0')
+        total_earned=Decimal('0'),
+        last_earning_date=None
     )
     
     update_referral_status(user)
@@ -1152,19 +1154,33 @@ def invest_product(request):
         'success': True,
         'investment_id': investment.id,
         'new_balance': float(wallet.balance),
-        'daily_earnings': float(product.daily_earnings_amount) if product.daily_earnings_amount else 0,
-        'message': f'Successfully invested KES {amount:,.0f} in {product.name}'
+        'daily_earnings': float(daily_earnings) if daily_earnings else 0,
+        'duration_days': duration_days,
+        'expiry_date': expiry.strftime('%Y-%m-%d'),
+        'message': f'Successfully invested KES {amount:,.0f} in {product.name} for {duration_days} days'
     })
 
 @api_view(['GET'])
 def get_user_investments(request):
-    """Get user's active investments"""
+    """Get user's active investments with proper duration and expiry"""
     user_id = request.GET.get('user_id')
     
     try:
         user = User.objects.get(id=user_id)
         now = timezone.now()
         
+        # Check and auto-complete expired investments
+        active_investments = UserInvestment.objects.filter(
+            user=user, 
+            status='active'
+        ).select_related('product')
+        
+        for inv in active_investments:
+            if inv.expiry_date and now >= inv.expiry_date:
+                inv.status = 'completed'
+                inv.save()
+        
+        # Get remaining active investments
         investments = UserInvestment.objects.filter(
             user=user, 
             status='active',
@@ -1180,7 +1196,7 @@ def get_user_investments(request):
     total_daily = Decimal('0')
     
     for inv in investments:
-        daily = inv.product.daily_earnings_amount if inv.product.daily_earnings_amount else Decimal('0')
+        daily = inv.product.get_daily_earnings(inv.amount) if inv.product else Decimal('0')
         total_daily += daily
         
         days_left = (inv.expiry_date - now).days
@@ -1199,7 +1215,7 @@ def get_user_investments(request):
             'invested_at': inv.invested_at.strftime('%Y-%m-%d'),
             'expiry_date': inv.expiry_date.strftime('%Y-%m-%d'),
             'days_left': max(0, days_left),
-            'duration_days': inv.product.duration_days
+            'duration_days': inv.product.get_duration()
         })
     
     return Response({
@@ -1482,7 +1498,7 @@ def get_bonus_history(request):
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-        
+
 # ========== DAILY EARNINGS API ==========
 @api_view(['GET', 'POST'])
 def process_daily_earnings_api(request):
@@ -1517,7 +1533,11 @@ def process_daily_earnings_api(request):
         if already_earned_today:
             continue
         
-        daily_earnings = investment.product.daily_earnings_amount if investment.product.daily_earnings_amount else Decimal('0')
+        daily_earnings = investment.product.get_daily_earnings(investment.amount)
+        
+        # Round daily earnings: if decimal >= 5, round up
+        if daily_earnings:
+            daily_earnings = Decimal(str(round(float(daily_earnings), 2)))
         
         if daily_earnings > 0:
             investment.total_earned += daily_earnings
@@ -1539,9 +1559,11 @@ def process_daily_earnings_api(request):
             except Wallet.DoesNotExist:
                 print(f"❌ No wallet found for {investment.user.username}")
         
-        if investment.expiry_date <= timezone.now():
+        # Auto-complete investment if expired
+        if investment.expiry_date and timezone.now() >= investment.expiry_date:
             investment.status = 'completed'
             investment.save()
+            print(f"📌 Investment {investment.id} auto-completed")
     
     if processed > 0:
         DailyEarningsLog.objects.create(
@@ -1709,7 +1731,7 @@ def track_referral(request):
         print(f"Referral tracking error: {e}")
         return Response({'success': True})
 
-# ========== GET REFERRAL INFO - FIXED URL (NO /signup) ==========
+# ========== GET REFERRAL INFO ==========
 @api_view(['GET'])
 def get_referral_info(request):
     """Get user's referral link, stats, and bonuses"""
@@ -1732,10 +1754,8 @@ def get_referral_info(request):
         pending_total = sum(b.amount for b in pending_bonuses)
         claimed_total = sum(b.amount for b in claimed_bonuses)
         
-        # ========== FIXED: Removed /signup from URL ==========
         site_url = "https://senti-earn.onrender.com"
         referral_link = f"{site_url}/?ref={referral_code}"
-        # ====================================================
         
         referrer_name = None
         if profile.referred_by:
@@ -1766,7 +1786,6 @@ def get_referral_info(request):
         return Response({'error': 'User not found'}, status=404)
     except Exception as e:
         return Response({'error': str(e)}, status=500)
-
 
 @api_view(['POST'])
 def claim_bonus(request):
@@ -1814,7 +1833,6 @@ def claim_bonus(request):
     except Exception as e:
         return Response({'error': str(e)}, status=500)
 
-
 # ========== INVESTMENT UPGRADE ENDPOINT ==========
 @api_view(['POST'])
 def upgrade_investment(request):
@@ -1856,8 +1874,8 @@ def upgrade_investment(request):
         
         now = timezone.now()
         days_remaining = max(0, (old_investment.expiry_date - now).days)
-        days_used = old_product.duration_days - days_remaining
-        remaining_days = new_product.duration_days - days_used
+        days_used = old_product.get_duration() - days_remaining
+        remaining_days = new_product.get_duration() - days_used
         if remaining_days < 0:
             remaining_days = 0
         
@@ -1889,7 +1907,7 @@ def upgrade_investment(request):
             'new_investment_id': new_investment.id,
             'amount_paid': float(difference),
             'new_balance': float(wallet.balance),
-            'daily_earnings': float(new_product.daily_earnings_amount or 0),
+            'daily_earnings': float(new_product.get_daily_earnings(new_product.min_investment)),
             'expiry_date': new_expiry.strftime('%Y-%m-%d'),
             'days_left': remaining_days
         })

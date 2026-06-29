@@ -350,12 +350,13 @@ class UserProfileAdmin(admin.ModelAdmin):
             )
     force_password_reset_profiles.short_description = "🔑 Force password reset (generate link)"
 
-# ========== WALLET ADMIN ==========
+# ========== WALLET ADMIN - FIXED TO ALLOW EDITING ==========
 @admin.register(Wallet)
 class WalletAdmin(admin.ModelAdmin):
     list_display = ('user', 'get_balance_display', 'total_deposited', 'total_withdrawn', 'total_earned', 'total_invested')
     search_fields = ('user__username',)
-    readonly_fields = ('balance', 'total_deposited', 'total_withdrawn', 'total_earned', 'total_invested')
+    # REMOVED readonly_fields to allow editing of all fields
+    fields = ('user', 'balance', 'total_deposited', 'total_withdrawn', 'total_earned', 'total_invested')
     
     def get_balance_display(self, obj):
         return f"KES {int(obj.balance):,}" if obj.balance else "KES 0"
@@ -434,7 +435,7 @@ class UserInvestmentAdmin(admin.ModelAdmin):
         self.message_user(request, f"🔄 {count} investments cancelled and refunded!")
     cancel_investments.short_description = "Cancel selected investments (refund to wallet)"
 
-# ========== DEPOSIT ADMIN - UPDATED FOR NEW DEPOSIT SYSTEM ==========
+# ========== DEPOSIT ADMIN ==========
 @admin.register(Deposit)
 class DepositAdmin(admin.ModelAdmin):
     list_display = ('user', 'amount_display', 'transaction_id', 'verification_status', 'status', 'created_at')
