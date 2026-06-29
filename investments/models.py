@@ -4,6 +4,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 import random
 import string
+from django.utils import timezone
 
 class UserProfile(models.Model):
     ACCOUNT_STATUS = [
@@ -91,10 +92,17 @@ class InvestmentProduct(models.Model):
             return investment_amount * Decimal('0.10')
     
     def get_duration(self):
-        if self.level in ['platinum', 'diamond']:
-            return 16
+        """Return duration based on product level"""
+        if self.level == 'bronze':
+            return 25  # Bronze stays 25 days
+        elif self.level in ['silver', 'gold']:
+            return 20  # Silver/Gold = 20 days
+        elif self.level == 'diamond' and self.name == 'Diamond Pro':
+            return 10  # Diamond Pro = 10 days
+        elif self.level in ['platinum', 'diamond']:
+            return 16  # Platinum/Diamond = 16 days
         else:
-            return 20
+            return 10  # VIP and others = 10 days
     
     def __str__(self):
         return f"{self.name} - {self.get_level_display()} (KES {self.min_investment})"

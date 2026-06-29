@@ -1127,7 +1127,7 @@ def invest_product(request):
     wallet.total_invested = (wallet.total_invested or 0) + amount
     wallet.save()
     
-    # Get duration for display ONLY - no expiry
+    # Get duration based on product level
     duration_days = product.get_duration()
     
     # Calculate daily earnings
@@ -1880,6 +1880,7 @@ def upgrade_investment(request):
             'amount_paid': float(difference),
             'new_balance': float(wallet.balance),
             'daily_earnings': float(new_product.get_daily_earnings(new_product.min_investment)),
+            'duration_days': new_product.get_duration(),
             'message': f'Successfully upgraded to {new_product.name}. This investment will earn daily forever!'
         })
         

@@ -361,25 +361,37 @@ function App() {
     }
   };
 
+  // ========== LOAD PRODUCTS - FIXED DURATIONS ==========
   const loadProducts = async () => {
     const productList = [
-      { id: 1, name: 'Micro Starter', min_investment: 100, daily_earnings: 4, level: 'bronze', duration_days: 20, locked: false },
-      { id: 2, name: 'Micro Plus', min_investment: 150, daily_earnings: 6, level: 'bronze', duration_days: 20, locked: false },
-      { id: 3, name: 'Bronze Micro', min_investment: 200, daily_earnings: 8, level: 'bronze', duration_days: 20, locked: false },
-      { id: 4, name: 'Bronze Standard', min_investment: 300, daily_earnings: 12, level: 'bronze', duration_days: 20, locked: false },
-      { id: 5, name: 'Bronze Plus', min_investment: 400, daily_earnings: 16, level: 'bronze', duration_days: 20, locked: false },
-      { id: 6, name: 'Starter Pack', min_investment: 520, daily_earnings: 21, level: 'bronze', duration_days: 20, locked: false },
-      { id: 7, name: 'Bronze Fund', min_investment: 800, daily_earnings: 32, level: 'bronze', duration_days: 20, locked: false },
-      { id: 8, name: 'Silver Starter', min_investment: 1000, daily_earnings: 67, level: 'silver', duration_days: 20, locked: false },
-      { id: 9, name: 'Silver Plus', min_investment: 1500, daily_earnings: 100, level: 'silver', duration_days: 20, locked: false },
-      { id: 10, name: 'Gold Basic', min_investment: 2000, daily_earnings: 133, level: 'gold', duration_days: 20, locked: false },
-      { id: 11, name: 'Gold Pro', min_investment: 3000, daily_earnings: 200, level: 'gold', duration_days: 20, locked: false },
-      { id: 12, name: 'Platinum Entry', min_investment: 5000, daily_earnings: 1000, level: 'platinum', duration_days: 16, locked: false },
-      { id: 13, name: 'Platinum Plus', min_investment: 8000, daily_earnings: 1600, level: 'platinum', duration_days: 16, locked: false },
-      { id: 14, name: 'Diamond Basic', min_investment: 10000, daily_earnings: 2000, level: 'diamond', duration_days: 16, locked: false },
-      { id: 15, name: 'Diamond Pro', min_investment: 12000, daily_earnings: 2400, level: 'diamond', duration_days: 16, locked: false },
+      // ===== BRONZE - 25 DAYS (UNCHANGED) =====
+      { id: 1, name: 'Micro Starter', min_investment: 100, daily_earnings: 4, level: 'bronze', duration_days: 25, locked: false },
+      { id: 2, name: 'Micro Plus', min_investment: 150, daily_earnings: 6, level: 'bronze', duration_days: 25, locked: false },
+      { id: 3, name: 'Bronze Micro', min_investment: 200, daily_earnings: 8, level: 'bronze', duration_days: 25, locked: false },
+      { id: 4, name: 'Bronze Standard', min_investment: 300, daily_earnings: 12, level: 'bronze', duration_days: 25, locked: false },
+      { id: 5, name: 'Bronze Plus', min_investment: 400, daily_earnings: 16, level: 'bronze', duration_days: 25, locked: false },
+      { id: 6, name: 'Starter Pack', min_investment: 520, daily_earnings: 21, level: 'bronze', duration_days: 25, locked: false },
+      { id: 7, name: 'Bronze Fund', min_investment: 800, daily_earnings: 32, level: 'bronze', duration_days: 25, locked: false },
+      
+      // ===== SILVER/GOLD - 20 DAYS (CHANGED FROM 10) =====
+      { id: 8, name: 'Silver Starter', min_investment: 1000, daily_earnings: 50, level: 'silver', duration_days: 20, locked: false },
+      { id: 9, name: 'Silver Plus', min_investment: 1500, daily_earnings: 75, level: 'silver', duration_days: 20, locked: false },
+      { id: 10, name: 'Gold Basic', min_investment: 2000, daily_earnings: 100, level: 'gold', duration_days: 20, locked: false },
+      { id: 11, name: 'Gold Pro', min_investment: 3000, daily_earnings: 150, level: 'gold', duration_days: 20, locked: false },
+      
+      // ===== PLATINUM/DIAMOND - 16 DAYS (CHANGED FROM 10) =====
+      { id: 12, name: 'Platinum Entry', min_investment: 5000, daily_earnings: 313, level: 'platinum', duration_days: 16, locked: false },
+      { id: 13, name: 'Platinum Plus', min_investment: 8000, daily_earnings: 500, level: 'platinum', duration_days: 16, locked: false },
+      { id: 14, name: 'Diamond Basic', min_investment: 10000, daily_earnings: 625, level: 'diamond', duration_days: 16, locked: false },
+      
+      // ===== DIAMOND PRO - 10 DAYS (SPECIAL) =====
+      { id: 15, name: 'Diamond Pro', min_investment: 12000, daily_earnings: 1200, level: 'diamond', duration_days: 10, locked: false },
+      
+      // ===== VIP - 10 DAYS (UNCHANGED) =====
       { id: 16, name: 'VIP Basic', min_investment: 15000, daily_earnings: 1500, level: 'vip', duration_days: 10, locked: false },
       { id: 17, name: 'VIP Plus', min_investment: 20000, daily_earnings: 2000, level: 'vip', duration_days: 10, locked: false },
+      
+      // ===== VIP LOCKED - 5 DAYS (UNCHANGED) =====
       { id: 18, name: 'VIP Elite', min_investment: 30000, daily_earnings: 6000, level: 'vip', duration_days: 5, locked: true },
       { id: 19, name: 'VIP Premium', min_investment: 50000, daily_earnings: 10000, level: 'vip', duration_days: 5, locked: true },
       { id: 20, name: 'VIP Ultimate', min_investment: 70000, daily_earnings: 14000, level: 'vip', duration_days: 5, locked: true },
@@ -902,7 +914,7 @@ function App() {
           <>
             <div className="section-header">
               <h1>Investment Products</h1>
-              <p>20 days (100-3,000) | 16 days (5,000-12,000) | 10 days (15,000-20,000) | 5 days (30,000-100,000 - Coming Soon)</p>
+              <p>25 days (100-800) | 20 days (1,000-3,000) | 16 days (5,000-10,000) | 10 days (12,000-20,000) | 5 days (30,000-100,000 - Coming Soon)</p>
               <p className="coming-soon-note">🔒 Products with lock icon are coming soon - Admin will announce when available</p>
             </div>
             <div className="products-grid">
